@@ -27,10 +27,6 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-//#ifdef HAVE_CONFIG_H
-#include "../config.h"
-//#endif
-
 #define CELT_DECODER_C
 
 #include "cpu_support.h"
@@ -108,6 +104,15 @@ struct OpusCustomDecoder {
 };
 
 
+int opus_custom_decoder_get_size(const CELTMode *mode, int channels)
+{
+   static int size;
+   size = sizeof(struct CELTDecoder)
+            + (channels*(DECODE_BUFFER_SIZE+mode->overlap)-1)*sizeof(celt_sig)
+            + channels*LPC_ORDER*sizeof(opus_val16)
+            + 4*2*mode->nbEBands*sizeof(opus_val16);
+   return size;
+}
 
 int celt_decoder_get_size(int channels)
 {
@@ -115,30 +120,11 @@ int celt_decoder_get_size(int channels)
    return opus_custom_decoder_get_size(mode, channels);
 }
 
-OPUS_CUSTOM_NOSTATIC int opus_custom_decoder_get_size(const CELTMode *mode, int channels)
-{
-   int size = sizeof(struct CELTDecoder)
-            + (channels*(DECODE_BUFFER_SIZE+mode->overlap)-1)*sizeof(celt_sig)
-            + channels*LPC_ORDER*sizeof(opus_val16)
-            + 4*2*mode->nbEBands*sizeof(opus_val16);
-   return size;
-}
 
 
-int celt_decoder_init(CELTDecoder *st, int32_t sampling_rate, int channels)
-{
-   int ret;
-   ret = opus_custom_decoder_init(st, opus_custom_mode_create(48000, 960, NULL), channels);
-   if (ret != OPUS_OK)
-      return ret;
-   st->downsample = resampling_factor(sampling_rate);
-   if (st->downsample==0)
-      return OPUS_BAD_ARG;
-   else
-      return OPUS_OK;
-}
 
-OPUS_CUSTOM_NOSTATIC int opus_custom_decoder_init(CELTDecoder *st, const CELTMode *mode, int channels)
+
+int opus_custom_decoder_init(CELTDecoder *st, const CELTMode *mode, int channels)
 {
    if (channels < 0 || channels > 2)
       return OPUS_BAD_ARG;
@@ -166,14 +152,28 @@ OPUS_CUSTOM_NOSTATIC int opus_custom_decoder_init(CELTDecoder *st, const CELTMod
    return OPUS_OK;
 }
 
+int celt_decoder_init(CELTDecoder *st, int32_t sampling_rate, int channels)
+{
+   int ret;
+   ret = opus_custom_decoder_init(st, opus_custom_mode_create(48000, 960, NULL), channels);
+   if (ret != OPUS_OK)
+      return ret;
+   st->downsample = resampling_factor(sampling_rate);
+   if (st->downsample==0)
+      return OPUS_BAD_ARG;
+   else
+      return OPUS_OK;
+}
+
+
 /* Special case for stereo with no downsampling and no accumulation. This is
    quite common and we can make it faster by processing both channels in the
    same loop, reducing overhead due to the dependency loop in the IIR filter. */
 static void deemphasis_stereo_simple(celt_sig *in[], opus_val16 *pcm, int N, const opus_val16 coef0,
       celt_sig *mem)
 {
-   celt_sig * OPUS_RESTRICT x0;
-   celt_sig * OPUS_RESTRICT x1;
+   celt_sig * __restrict__ x0;
+   celt_sig * __restrict__ x1;
    celt_sig m0, m1;
    int j;
    x0=in[0];
@@ -221,8 +221,8 @@ void deemphasis(celt_sig *in[], opus_val16 *pcm, int N, int C, int downsample, c
    Nd = N/downsample;
    c=0; do {
       int j;
-      celt_sig * OPUS_RESTRICT x;
-      opus_val16  * OPUS_RESTRICT y;
+      celt_sig * __restrict__ x;
+      opus_val16  * __restrict__ y;
       celt_sig m = mem[c];
       x =in[c];
       y = pcm+c;
@@ -417,7 +417,7 @@ static int celt_plc_pitch_search(celt_sig *decode_mem[2], int C, int arch)
    return pitch_index;
 }
 
-static void celt_decode_lost(CELTDecoder * OPUS_RESTRICT st, int N, int LM)
+static void celt_decode_lost(CELTDecoder * __restrict__ st, int N, int LM)
 {
    int c;
    int i;
@@ -721,8 +721,8 @@ static void celt_decode_lost(CELTDecoder * OPUS_RESTRICT st, int N, int LM)
    RESTORE_STACK;
 }
 
-int celt_decode_with_ec(CELTDecoder * OPUS_RESTRICT st, const unsigned char *data,
-      int len, opus_val16 * OPUS_RESTRICT pcm, int frame_size, ec_dec *dec, int accum)
+int celt_decode_with_ec(CELTDecoder * __restrict__ st, const unsigned char *data,
+      int len, opus_val16 * __restrict__ pcm, int frame_size, ec_dec *dec, int accum)
 {
    int c, i, N;
    int spread_decision;
@@ -1061,7 +1061,7 @@ int celt_decode_with_ec(CELTDecoder * OPUS_RESTRICT st, const unsigned char *dat
 
 
 
-int opus_custom_decoder_ctl(CELTDecoder * OPUS_RESTRICT st, int request, ...)
+int opus_custom_decoder_ctl(CELTDecoder * __restrict__ st, int request, ...)
 {
    va_list ap;
 

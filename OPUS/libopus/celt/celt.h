@@ -134,7 +134,7 @@ typedef struct {
 
 int celt_encoder_get_size(int channels);
 
-int celt_encode_with_ec(OpusCustomEncoder * OPUS_RESTRICT st, const opus_val16 * pcm, int frame_size, unsigned char *compressed, int nbCompressedBytes, ec_enc *enc);
+int celt_encode_with_ec(OpusCustomEncoder * __restrict__ st, const opus_val16 * pcm, int frame_size, unsigned char *compressed, int nbCompressedBytes, ec_enc *enc);
 
 int celt_encoder_init(CELTEncoder *st, int32_t sampling_rate, int channels,
                       int arch);
@@ -148,8 +148,8 @@ int celt_decoder_get_size(int channels);
 
 int celt_decoder_init(CELTDecoder *st, int32_t sampling_rate, int channels);
 
-int celt_decode_with_ec(OpusCustomDecoder * OPUS_RESTRICT st, const unsigned char *data,
-      int len, opus_val16 * OPUS_RESTRICT pcm, int frame_size, ec_dec *dec, int accum);
+int celt_decode_with_ec(OpusCustomDecoder * __restrict__ st, const unsigned char *data,
+      int len, opus_val16 * __restrict__ pcm, int frame_size, ec_dec *dec, int accum);
 
 #define celt_encoder_ctl opus_custom_encoder_ctl
 #define celt_decoder_ctl opus_custom_decoder_ctl
@@ -217,7 +217,7 @@ void validate_celt_decoder(CELTDecoder *st);
 
 int resampling_factor(int32_t rate);
 
-void celt_preemphasis(const opus_val16 * OPUS_RESTRICT pcmp, celt_sig * OPUS_RESTRICT inp,
+void celt_preemphasis(const opus_val16 * __restrict__ pcmp, celt_sig * __restrict__ inp,
                         int N, int CC, int upsample, const opus_val16 *coef, celt_sig *mem, int clip);
 
 void comb_filter(opus_val32 *y, opus_val32 *x, int T0, int T1, int N,

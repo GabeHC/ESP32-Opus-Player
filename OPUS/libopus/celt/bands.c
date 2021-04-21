@@ -27,10 +27,6 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-//#ifdef HAVE_CONFIG_H
-#include "../config.h"
-//#endif
-
 #include <math.h>
 #include "bands.h"
 #include "modes.h"
@@ -133,7 +129,7 @@ void compute_band_energies(const CELTMode *m, const celt_sig *X, celt_ener *band
 }
 
 /* Normalise each band such that the energy is one. */
-void normalise_bands(const CELTMode *m, const celt_sig * OPUS_RESTRICT freq, celt_norm * OPUS_RESTRICT X, const celt_ener *bandE, int end, int C, int M)
+void normalise_bands(const CELTMode *m, const celt_sig * __restrict__ freq, celt_norm * __restrict__ X, const celt_ener *bandE, int end, int C, int M)
 {
    int i, c, N;
    const int16_t *eBands = m->eBands;
@@ -156,14 +152,14 @@ void normalise_bands(const CELTMode *m, const celt_sig * OPUS_RESTRICT freq, cel
 
 
 /* De-normalise the energy to produce the synthesis from the unit-energy bands */
-void denormalise_bands(const CELTMode *m, const celt_norm * OPUS_RESTRICT X,
-      celt_sig * OPUS_RESTRICT freq, const opus_val16 *bandLogE, int start,
+void denormalise_bands(const CELTMode *m, const celt_norm * __restrict__ X,
+      celt_sig * __restrict__ freq, const opus_val16 *bandLogE, int start,
       int end, int M, int downsample, int silence)
 {
    int i, N;
    int bound;
-   celt_sig * OPUS_RESTRICT f;
-   const celt_norm * OPUS_RESTRICT x;
+   celt_sig * __restrict__ f;
+   const celt_norm * __restrict__ x;
    const int16_t *eBands = m->eBands;
    N = M*m->shortMdctSize;
    bound = M*eBands[end];
@@ -334,7 +330,7 @@ static void compute_channel_weights(celt_ener Ex, celt_ener Ey, opus_val16 w[2])
    w[1] = VSHR32(Ey, shift);
 }
 
-static void intensity_stereo(const CELTMode *m, celt_norm * OPUS_RESTRICT X, const celt_norm * OPUS_RESTRICT Y, const celt_ener *bandE, int bandID, int N)
+static void intensity_stereo(const CELTMode *m, celt_norm * __restrict__ X, const celt_norm * __restrict__ Y, const celt_ener *bandE, int bandID, int N)
 {
    int i = bandID;
    int j;
@@ -359,7 +355,7 @@ static void intensity_stereo(const CELTMode *m, celt_norm * OPUS_RESTRICT X, con
    }
 }
 
-static void stereo_split(celt_norm * OPUS_RESTRICT X, celt_norm * OPUS_RESTRICT Y, int N)
+static void stereo_split(celt_norm * __restrict__ X, celt_norm * __restrict__ Y, int N)
 {
    int j;
    for (j=0;j<N;j++)
@@ -372,7 +368,7 @@ static void stereo_split(celt_norm * OPUS_RESTRICT X, celt_norm * OPUS_RESTRICT 
    }
 }
 
-static void stereo_merge(celt_norm * OPUS_RESTRICT X, celt_norm * OPUS_RESTRICT Y, opus_val16 mid, int N, int arch)
+static void stereo_merge(celt_norm * __restrict__ X, celt_norm * __restrict__ Y, opus_val16 mid, int N, int arch)
 {
    int j;
    opus_val32 xp=0, side=0;
@@ -431,7 +427,7 @@ int spreading_decision(const CELTMode *m, const celt_norm *X, int *average,
 {
    int i, c, N0;
    int sum = 0, nbBands=0;
-   const int16_t * OPUS_RESTRICT eBands = m->eBands;
+   const int16_t * __restrict__ eBands = m->eBands;
    int decision;
    int hf_sum=0;
 
@@ -446,7 +442,7 @@ int spreading_decision(const CELTMode *m, const celt_norm *X, int *average,
       {
          int j, N, tmp=0;
          int tcount[3] = {0,0,0};
-         const celt_norm * OPUS_RESTRICT x = X+M*eBands[i]+c*N0;
+         const celt_norm * __restrict__ x = X+M*eBands[i]+c*N0;
          N = M*(eBands[i+1]-eBands[i]);
          if (N<=8)
             continue;
@@ -1325,7 +1321,7 @@ static unsigned quant_band_stereo(struct band_ctx *ctx, celt_norm *X, celt_norm 
 static void special_hybrid_folding(const CELTMode *m, celt_norm *norm, celt_norm *norm2, int start, int M, int dual_stereo)
 {
    int n1, n2;
-   const int16_t * OPUS_RESTRICT eBands = m->eBands;
+   const int16_t * __restrict__ eBands = m->eBands;
    n1 = M*(eBands[start+1]-eBands[start]);
    n2 = M*(eBands[start+2]-eBands[start+1]);
    /* Duplicate enough of the first band folding data to be able to fold the second band.
@@ -1344,8 +1340,8 @@ void quant_all_bands(int encode, const CELTMode *m, int start, int end,
 {
    int i;
    int32_t remaining_bits;
-   const int16_t * OPUS_RESTRICT eBands = m->eBands;
-   celt_norm * OPUS_RESTRICT norm, * OPUS_RESTRICT norm2;
+   const int16_t * __restrict__ eBands = m->eBands;
+   celt_norm * __restrict__ norm, * __restrict__ norm2;
    VARDECL(celt_norm, _norm);
    VARDECL(celt_norm, _lowband_scratch);
    VARDECL(celt_norm, X_save);
@@ -1416,7 +1412,7 @@ void quant_all_bands(int encode, const CELTMode *m, int start, int end,
       int N;
       int32_t curr_balance;
       int effective_lowband=-1;
-      celt_norm * OPUS_RESTRICT X, * OPUS_RESTRICT Y;
+      celt_norm * __restrict__ X, * __restrict__ Y;
       int tf_change=0;
       unsigned x_cm;
       unsigned y_cm;

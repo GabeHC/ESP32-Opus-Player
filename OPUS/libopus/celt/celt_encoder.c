@@ -27,10 +27,6 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-//#ifdef HAVE_CONFIG_H
-#include "../config.h"
-//#endif
-
 #define CELT_ENCODER_C
 
 #include "cpu_support.h"
@@ -120,13 +116,7 @@ struct OpusCustomEncoder {
    /* opus_val16 energyError[],  Size = channels*mode->nbEBands */
 };
 
-int celt_encoder_get_size(int channels)
-{
-   CELTMode *mode = opus_custom_mode_create(48000, 960, NULL);
-   return opus_custom_encoder_get_size(mode, channels);
-}
-
-OPUS_CUSTOM_NOSTATIC int opus_custom_encoder_get_size(const CELTMode *mode, int channels)
+int opus_custom_encoder_get_size(const CELTMode *mode, int channels)
 {
    int size = sizeof(struct CELTEncoder)
          + (channels*mode->overlap-1)*sizeof(celt_sig)    /* celt_sig in_mem[channels*mode->overlap]; */
@@ -137,6 +127,14 @@ OPUS_CUSTOM_NOSTATIC int opus_custom_encoder_get_size(const CELTMode *mode, int 
                                                           /* opus_val16 energyError[channels*mode->nbEBands]; */
    return size;
 }
+
+int celt_encoder_get_size(int channels)
+{
+   CELTMode *mode = opus_custom_mode_create(48000, 960, NULL);
+   return opus_custom_encoder_get_size(mode, channels);
+}
+
+
 
 
 static int opus_custom_encoder_init_arch(CELTEncoder *st, const CELTMode *mode,
@@ -190,7 +188,7 @@ int celt_encoder_init(CELTEncoder *st, int32_t sampling_rate, int channels,
 
 
 
-static int transient_analysis(const opus_val32 * OPUS_RESTRICT in, int len, int C,
+static int transient_analysis(const opus_val32 * __restrict__ in, int len, int C,
                               opus_val16 *tf_estimate, int *tf_chan, int allow_weak_transients,
                               int *weak_transient)
 {
@@ -396,8 +394,8 @@ static int patch_transient_decision(opus_val16 *newE, opus_val16 *oldE, int nbEB
 
 /** Apply window and compute the MDCT for all sub-frames and
     all channels in a frame */
-static void compute_mdcts(const CELTMode *mode, int shortBlocks, celt_sig * OPUS_RESTRICT in,
-                          celt_sig * OPUS_RESTRICT out, int C, int CC, int LM, int upsample,
+static void compute_mdcts(const CELTMode *mode, int shortBlocks, celt_sig * __restrict__ in,
+                          celt_sig * __restrict__ out, int C, int CC, int LM, int upsample,
                           int arch)
 {
    const int overlap = mode->overlap;
@@ -442,7 +440,7 @@ static void compute_mdcts(const CELTMode *mode, int shortBlocks, celt_sig * OPUS
 }
 
 
-void celt_preemphasis(const opus_val16 * OPUS_RESTRICT pcmp, celt_sig * OPUS_RESTRICT inp,
+void celt_preemphasis(const opus_val16 * __restrict__ pcmp, celt_sig * __restrict__ inp,
                         int N, int CC, int upsample, const opus_val16 *coef, celt_sig *mem, int clip)
 {
    int i;
@@ -1284,7 +1282,7 @@ static int compute_vbr(const CELTMode *mode, AnalysisInfo *analysis, int32_t bas
    return target;
 }
 
-int celt_encode_with_ec(CELTEncoder * OPUS_RESTRICT st, const opus_val16 * pcm, int frame_size, unsigned char *compressed, int nbCompressedBytes, ec_enc *enc)
+int celt_encode_with_ec(CELTEncoder * __restrict__ st, const opus_val16 * pcm, int frame_size, unsigned char *compressed, int nbCompressedBytes, ec_enc *enc)
 {
    int i, c, N;
    int32_t bits;
@@ -2104,7 +2102,7 @@ int celt_encode_with_ec(CELTEncoder * OPUS_RESTRICT st, const opus_val16 * pcm, 
 
 
 
-int opus_custom_encoder_ctl(CELTEncoder * OPUS_RESTRICT st, int request, ...)
+int opus_custom_encoder_ctl(CELTEncoder * __restrict__ st, int request, ...)
 {
    va_list ap;
 

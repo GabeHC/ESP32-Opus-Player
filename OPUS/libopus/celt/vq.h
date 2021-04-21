@@ -37,10 +37,6 @@
 #include "entdec.h"
 #include "modes.h"
 
-#if (defined(OPUS_X86_MAY_HAVE_SSE2) && !defined(FIXED_POINT))
-#include "x86/vq_sse.h"
-#endif
-
 void exp_rotation(celt_norm *X, int len, int dir, int stride, int K, int spread);
 
 opus_val16 op_pvq_search_c(celt_norm *X, int *iy, int K, int N, int arch);

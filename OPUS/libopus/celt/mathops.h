@@ -45,38 +45,6 @@
 
 unsigned isqrt32(uint32_t _val);
 
-/* CELT doesn't need it for fixed-point, by analysis.c does. */
-#if !defined(FIXED_POINT) || defined(ANALYSIS_C)
-#define cA 0.43157974f
-#define cB 0.67848403f
-#define cC 0.08595542f
-#define cE ((float)PI/2)
-static OPUS_INLINE float fast_atan2f(float y, float x) {
-   float x2, y2;
-   x2 = x*x;
-   y2 = y*y;
-   /* For very small values, we don't care about the answer, so
-      we can just return 0. */
-   if (x2 + y2 < 1e-18f)
-   {
-      return 0;
-   }
-   if(x2<y2){
-      float den = (y2 + cB*x2) * (y2 + cC*x2);
-      return -x*y*(y2 + cA*x2) / den + (y<0 ? -cE : cE);
-   }else{
-      float den = (x2 + cB*y2) * (x2 + cC*y2);
-      return  x*y*(x2 + cA*y2) / den + (y<0 ? -cE : cE) - (x*y<0 ? -cE : cE);
-   }
-}
-#undef cA
-#undef cB
-#undef cC
-#undef cE
-#endif
-
-
-#ifndef OVERRIDE_CELT_MAXABS16
 static OPUS_INLINE opus_val32 celt_maxabs16(const opus_val16 *x, int len)
 {
    int i;
@@ -89,10 +57,7 @@ static OPUS_INLINE opus_val32 celt_maxabs16(const opus_val16 *x, int len)
    }
    return MAX32(EXTEND32(maxval),-EXTEND32(minval));
 }
-#endif
 
-#ifndef OVERRIDE_CELT_MAXABS32
-#ifdef FIXED_POINT
 static OPUS_INLINE opus_val32 celt_maxabs32(const opus_val32 *x, int len)
 {
    int i;
@@ -105,73 +70,7 @@ static OPUS_INLINE opus_val32 celt_maxabs32(const opus_val32 *x, int len)
    }
    return MAX32(maxval, -minval);
 }
-#else
-#define celt_maxabs32(x,len) celt_maxabs16(x,len)
-#endif
-#endif
 
-
-#ifndef FIXED_POINT
-
-#define celt_sqrt(x) ((float)sqrt(x))
-#define celt_rsqrt(x) (1.f/celt_sqrt(x))
-#define celt_rsqrt_norm(x) (celt_rsqrt(x))
-#define celt_cos_norm(x) ((float)cos((.5f*PI)*(x)))
-#define celt_rcp(x) (1.f/(x))
-#define celt_div(a,b) ((a)/(b))
-#define frac_div32(a,b) ((float)(a)/(b))
-
-#ifdef FLOAT_APPROX
-
-/* Note: This assumes radix-2 floating point with the exponent at bits 23..30 and an offset of 127
-         denorm, +/- inf and NaN are *not* handled */
-
-/** Base-2 log approximation (log2(x)). */
-static OPUS_INLINE float celt_log2(float x)
-{
-   int integer;
-   float frac;
-   union {
-      float f;
-      opus_uint32 i;
-   } in;
-   in.f = x;
-   integer = (in.i>>23)-127;
-   in.i -= integer<<23;
-   frac = in.f - 1.5f;
-   frac = -0.41445418f + frac*(0.95909232f
-          + frac*(-0.33951290f + frac*0.16541097f));
-   return 1+integer+frac;
-}
-
-/** Base-2 exponential approximation (2^x). */
-static OPUS_INLINE float celt_exp2(float x)
-{
-   int integer;
-   float frac;
-   union {
-      float f;
-      opus_uint32 i;
-   } res;
-   integer = floor(x);
-   if (integer < -50)
-      return 0;
-   frac = x-integer;
-   /* K0 = 1, K1 = log(2), K2 = 3-4*log(2), K3 = 3*log(2) - 2 */
-   res.f = 0.99992522f + frac * (0.69583354f
-           + frac * (0.22606716f + 0.078024523f*frac));
-   res.i = (res.i + (integer<<23)) & 0x7fffffff;
-   return res.f;
-}
-
-#else
-#define celt_log2(x) ((float)(1.442695040888963387*log(x)))
-#define celt_exp2(x) ((float)exp(0.6931471805599453094*(x)))
-#endif
-
-#endif
-
-#ifdef FIXED_POINT
 
 #include "os_support.h"
 
@@ -286,5 +185,4 @@ static OPUS_INLINE opus_val16 celt_atan2p(opus_val16 y, opus_val16 x)
    }
 }
 
-#endif /* FIXED_POINT */
 #endif /* MATHOPS_H */

@@ -26,10 +26,6 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-//#ifdef HAVE_CONFIG_H
-#include "../config.h"
-//#endif
-
 #include "quant_bands.h"
 #include "laplace.h"
 #include <math.h>
@@ -39,7 +35,7 @@
 #include "stack_alloc.h"
 #include "rate.h"
 
-#ifdef FIXED_POINT
+
 /* Mean energy in each band quantized in Q4 */
 const signed char eMeans[25] = {
       103,100, 92, 85, 81,
@@ -48,26 +44,12 @@ const signed char eMeans[25] = {
        72, 70, 74, 76, 71,
        60, 60, 60, 60, 60
 };
-#else
-/* Mean energy in each band quantized in Q4 and converted back to float */
-const opus_val16 eMeans[25] = {
-      6.437500f, 6.250000f, 5.750000f, 5.312500f, 5.062500f,
-      4.812500f, 4.500000f, 4.375000f, 4.875000f, 4.687500f,
-      4.562500f, 4.437500f, 4.875000f, 4.625000f, 4.312500f,
-      4.500000f, 4.375000f, 4.625000f, 4.750000f, 4.437500f,
-      3.750000f, 3.750000f, 3.750000f, 3.750000f, 3.750000f
-};
-#endif
+
 /* prediction coefficients: 0.9, 0.8, 0.65, 0.5 */
-#ifdef FIXED_POINT
 static const opus_val16 pred_coef[4] = {29440, 26112, 21248, 16384};
 static const opus_val16 beta_coef[4] = {30147, 22282, 12124, 6554};
 static const opus_val16 beta_intra = 4915;
-#else
-static const opus_val16 pred_coef[4] = {29440/32768., 26112/32768., 21248/32768., 16384/32768.};
-static const opus_val16 beta_coef[4] = {30147/32768., 22282/32768., 12124/32768., 6554/32768.};
-static const opus_val16 beta_intra = 4915/32768.;
-#endif
+
 
 /*Parameters of the Laplace-like probability models used for the coarse energy.
   There is one pair of parameters for each frame size, prediction type
@@ -190,18 +172,12 @@ static int quant_coarse_energy_impl(const CELTMode *m, int start, int end,
          opus_val16 decay_bound;
          x = eBands[i+c*m->nbEBands];
          oldE = MAX16(-QCONST16(9.f,DB_SHIFT), oldEBands[i+c*m->nbEBands]);
-#ifdef FIXED_POINT
+
          f = SHL32(EXTEND32(x),7) - PSHR32(MULT16_16(coef,oldE), 8) - prev[c];
          /* Rounding to nearest integer here is really important! */
          qi = (f+QCONST32(.5f,DB_SHIFT+7))>>(DB_SHIFT+7);
          decay_bound = EXTRACT16(MAX32(-QCONST16(28.f,DB_SHIFT),
                SUB32((opus_val32)oldEBands[i+c*m->nbEBands],max_decay)));
-#else
-         f = x-coef*oldE-prev[c];
-         /* Rounding to nearest integer here is really important! */
-         qi = (int)floor(.5f+f);
-         decay_bound = MAX16(-QCONST16(28.f,DB_SHIFT), oldEBands[i+c*m->nbEBands]) - max_decay;
-#endif
          /* Prevent the energy from going down too quickly (e.g. for bands
             that have just one bin) */
          if (qi < 0 && x < decay_bound)
@@ -248,9 +224,7 @@ static int quant_coarse_energy_impl(const CELTMode *m, int start, int end,
          q = (opus_val32)SHL32(EXTEND32(qi),DB_SHIFT);
 
          tmp = PSHR32(MULT16_16(coef,oldE),8) + prev[c] + SHL32(q,7);
-#ifdef FIXED_POINT
          tmp = MAX32(-QCONST32(28.f, DB_SHIFT+7), tmp);
-#endif
          oldEBands[i+c*m->nbEBands] = PSHR32(tmp, 7);
          prev[c] = prev[c] + SHL32(q,7) - MULT16_16(beta,PSHR32(q,8));
       } while (++c < C);
@@ -285,11 +259,8 @@ void quant_coarse_energy(const CELTMode *m, int start, int end, int effEnd,
    max_decay = QCONST16(16.f,DB_SHIFT);
    if (end-start>10)
    {
-#ifdef FIXED_POINT
       max_decay = MIN32(max_decay, SHL32(EXTEND32(nbAvailableBytes),DB_SHIFT-3));
-#else
-      max_decay = MIN32(max_decay, .125f*nbAvailableBytes);
-#endif
+
    }
    if (lfe)
       max_decay = QCONST16(3.f,DB_SHIFT);
@@ -372,22 +343,14 @@ void quant_fine_energy(const CELTMode *m, int start, int end, opus_val16 *oldEBa
       do {
          int q2;
          opus_val16 offset;
-#ifdef FIXED_POINT
          /* Has to be without rounding */
          q2 = (error[i+c*m->nbEBands]+QCONST16(.5f,DB_SHIFT))>>(DB_SHIFT-fine_quant[i]);
-#else
-         q2 = (int)floor((error[i+c*m->nbEBands]+.5f)*frac);
-#endif
          if (q2 > frac-1)
             q2 = frac-1;
          if (q2<0)
             q2 = 0;
          ec_enc_bits(enc, q2, fine_quant[i]);
-#ifdef FIXED_POINT
          offset = SUB16(SHR32(SHL32(EXTEND32(q2),DB_SHIFT)+QCONST16(.5f,DB_SHIFT),fine_quant[i]),QCONST16(.5f,DB_SHIFT));
-#else
-         offset = (q2+.5f)*(1<<(14-fine_quant[i]))*(1.f/16384) - .5f;
-#endif
          oldEBands[i+c*m->nbEBands] += offset;
          error[i+c*m->nbEBands] -= offset;
          /*printf ("%f ", error[i] - offset);*/
@@ -412,11 +375,7 @@ void quant_energy_finalise(const CELTMode *m, int start, int end, opus_val16 *ol
             opus_val16 offset;
             q2 = error[i+c*m->nbEBands]<0 ? 0 : 1;
             ec_enc_bits(enc, q2, 1);
-#ifdef FIXED_POINT
             offset = SHR16(SHL16(q2,DB_SHIFT)-QCONST16(.5f,DB_SHIFT),fine_quant[i]+1);
-#else
-            offset = (q2-.5f)*(1<<(14-fine_quant[i]-1))*(1.f/16384);
-#endif
             oldEBands[i+c*m->nbEBands] += offset;
             error[i+c*m->nbEBands] -= offset;
             bits_left--;
@@ -481,9 +440,7 @@ void unquant_coarse_energy(const CELTMode *m, int start, int end, opus_val16 *ol
 
          oldEBands[i+c*m->nbEBands] = MAX16(-QCONST16(9.f,DB_SHIFT), oldEBands[i+c*m->nbEBands]);
          tmp = PSHR32(MULT16_16(coef,oldEBands[i+c*m->nbEBands]),8) + prev[c] + SHL32(q,7);
-#ifdef FIXED_POINT
          tmp = MAX32(-QCONST32(28.f, DB_SHIFT+7), tmp);
-#endif
          oldEBands[i+c*m->nbEBands] = PSHR32(tmp, 7);
          prev[c] = prev[c] + SHL32(q,7) - MULT16_16(beta,PSHR32(q,8));
       } while (++c < C);
@@ -503,11 +460,7 @@ void unquant_fine_energy(const CELTMode *m, int start, int end, opus_val16 *oldE
          int q2;
          opus_val16 offset;
          q2 = ec_dec_bits(dec, fine_quant[i]);
-#ifdef FIXED_POINT
          offset = SUB16(SHR32(SHL32(EXTEND32(q2),DB_SHIFT)+QCONST16(.5f,DB_SHIFT),fine_quant[i]),QCONST16(.5f,DB_SHIFT));
-#else
-         offset = (q2+.5f)*(1<<(14-fine_quant[i]))*(1.f/16384) - .5f;
-#endif
          oldEBands[i+c*m->nbEBands] += offset;
       } while (++c < C);
    }
@@ -529,11 +482,7 @@ void unquant_energy_finalise(const CELTMode *m, int start, int end, opus_val16 *
             int q2;
             opus_val16 offset;
             q2 = ec_dec_bits(dec, 1);
-#ifdef FIXED_POINT
             offset = SHR16(SHL16(q2,DB_SHIFT)-QCONST16(.5f,DB_SHIFT),fine_quant[i]+1);
-#else
-            offset = (q2-.5f)*(1<<(14-fine_quant[i]-1))*(1.f/16384);
-#endif
             oldEBands[i+c*m->nbEBands] += offset;
             bits_left--;
          } while (++c < C);
@@ -552,10 +501,8 @@ void amp2Log2(const CELTMode *m, int effEnd, int end,
          bandLogE[i+c*m->nbEBands] =
                celt_log2(bandE[i+c*m->nbEBands])
                - SHL16((opus_val16)eMeans[i],6);
-#ifdef FIXED_POINT
          /* Compensate for bandE[] being Q12 but celt_log2() taking a Q14 input. */
          bandLogE[i+c*m->nbEBands] += QCONST16(2.f, DB_SHIFT);
-#endif
       }
       for (i=effEnd;i<end;i++)
          bandLogE[c*m->nbEBands+i] = -QCONST16(14.f,DB_SHIFT);

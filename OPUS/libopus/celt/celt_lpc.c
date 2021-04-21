@@ -25,9 +25,6 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-//#ifdef HAVE_CONFIG_H
-#include "../config.h"
-//#endif
 
 #include "celt_lpc.h"
 #include "stack_alloc.h"
@@ -43,12 +40,7 @@ int          p
    int i, j;
    opus_val32 r;
    opus_val32 error = ac[0];
-#ifdef FIXED_POINT
    opus_val32 lpc[LPC_ORDER];
-#else
-   float *lpc = _lpc;
-#endif
-
    OPUS_CLEAR(lpc, p);
    if (ac[0] != 0)
    {
@@ -72,19 +64,12 @@ int          p
 
          error = error - MULT32_32_Q31(MULT32_32_Q31(r,r),error);
          /* Bail out once we get 30 dB gain */
-#ifdef FIXED_POINT
          if (error<SHR32(ac[0],10))
             break;
-#else
-         if (error<.001f*ac[0])
-            break;
-#endif
       }
    }
-#ifdef FIXED_POINT
    for (i=0;i<p;i++)
       _lpc[i] = ROUND16(lpc[i],16);
-#endif
 }
 
 
@@ -241,7 +226,6 @@ int _celt_autocorr(
       xptr = xx;
    }
    shift=0;
-#ifdef FIXED_POINT
    {
       opus_val32 ac0;
       ac0 = 1+(n<<7);
@@ -262,7 +246,6 @@ int _celt_autocorr(
       } else
          shift = 0;
    }
-#endif
    celt_pitch_xcorr(xptr, xptr, ac, fastN, lag+1, arch);
    for (k=0;k<=lag;k++)
    {
@@ -270,7 +253,6 @@ int _celt_autocorr(
          d = MAC16_16(d, xptr[i], xptr[i-k]);
       ac[k] += d;
    }
-#ifdef FIXED_POINT
    shift = 2*shift;
    if (shift<=0)
       ac[0] += SHL32((int32_t)1, -shift);
@@ -289,7 +271,6 @@ int _celt_autocorr(
          ac[i] = SHR32(ac[i], shift2);
       shift += shift2;
    }
-#endif
 
    RESTORE_STACK;
    return shift;

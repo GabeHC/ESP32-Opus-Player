@@ -26,10 +26,6 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-//#ifdef HAVE_CONFIG_H
-#include "../config.h"
-//#endif
-
 #include "mathops.h"
 #include "cwrs.h"
 #include "vq.h"
@@ -118,19 +114,15 @@ void exp_rotation(celt_norm *X, int len, int dir, int stride, int K, int spread)
 
 /** Takes the pitch vector and the decoded residual vector, computes the gain
     that will give ||p+g*y||=1 and mixes the residual with the pitch. */
-static void normalise_residual(int * OPUS_RESTRICT iy, celt_norm * OPUS_RESTRICT X,
+static void normalise_residual(int * __restrict__ iy, celt_norm * __restrict__ X,
       int N, opus_val32 Ryy, opus_val16 gain)
 {
    int i;
-#ifdef FIXED_POINT
    int k;
-#endif
    opus_val32 t;
    opus_val16 g;
 
-#ifdef FIXED_POINT
    k = celt_ilog2(Ryy)>>1;
-#endif
    t = VSHR32(Ryy, 2*(k-7));
    g = MULT16_16_P15(celt_rsqrt_norm(t),gain);
 
@@ -200,13 +192,7 @@ opus_val16 op_pvq_search_c(celt_norm *X, int *iy, int K, int N, int arch)
       }  while (++j<N);
 
       /* If X is too small, just replace it with a pulse at 0 */
-#ifdef FIXED_POINT
       if (sum <= K)
-#else
-      /* Prevents infinities and NaNs from causing too many pulses
-         to be allocated. 64 is an approximation of infinity here. */
-      if (!(sum > EPSILON && sum < 64))
-#endif
       {
          X[0] = QCONST16(1.f,14);
          j=1; do
@@ -214,19 +200,10 @@ opus_val16 op_pvq_search_c(celt_norm *X, int *iy, int K, int N, int arch)
          while (++j<N);
          sum = QCONST16(1.f,14);
       }
-#ifdef FIXED_POINT
       rcp = EXTRACT16(MULT16_32_Q16(K, celt_rcp(sum)));
-#else
-      /* Using K+e with e < 1 guarantees we cannot get more than K pulses. */
-      rcp = EXTRACT16(MULT16_32_Q16(K+0.8f, celt_rcp(sum)));
-#endif
       j=0; do {
-#ifdef FIXED_POINT
          /* It's really important to round *towards zero* here */
          iy[j] = MULT16_16_Q15(X[j],rcp);
-#else
-         iy[j] = (int)floor(rcp*X[j]);
-#endif
          y[j] = (celt_norm)iy[j];
          yy = MAC16_16(yy, y[j],y[j]);
          xy = MAC16_16(xy, X[j],y[j]);
@@ -238,9 +215,6 @@ opus_val16 op_pvq_search_c(celt_norm *X, int *iy, int K, int N, int arch)
 
    /* This should never happen, but just in case it does (e.g. on silence)
       we fill the first bin with pulses. */
-#ifdef FIXED_POINT_DEBUG
-   celt_sig_assert(pulsesLeft<=N+3);
-#endif
    if (pulsesLeft > N+3)
    {
       opus_val16 tmp = (opus_val16)pulsesLeft;
@@ -256,12 +230,8 @@ opus_val16 op_pvq_search_c(celt_norm *X, int *iy, int K, int N, int arch)
       int best_id;
       opus_val32 best_num;
       opus_val16 best_den;
-#ifdef FIXED_POINT
       int rshift;
-#endif
-#ifdef FIXED_POINT
       rshift = 1+celt_ilog2(K-pulsesLeft+i+1);
-#endif
       best_id = 0;
       /* The squared magnitude term gets added anyway, so we might as well
          add it outside the loop */
@@ -383,17 +353,13 @@ unsigned alg_unquant(celt_norm *X, int N, int K, int spread, int B,
 void renormalise_vector(celt_norm *X, int N, opus_val16 gain, int arch)
 {
    int i;
-#ifdef FIXED_POINT
    int k;
-#endif
    opus_val32 E;
    opus_val16 g;
    opus_val32 t;
    celt_norm *xptr;
    E = EPSILON + celt_inner_prod(X, X, N, arch);
-#ifdef FIXED_POINT
    k = celt_ilog2(E)>>1;
-#endif
    t = VSHR32(E, 2*(k-7));
    g = MULT16_16_P15(celt_rsqrt_norm(t),gain);
 
@@ -431,12 +397,9 @@ int stereo_itheta(const celt_norm *X, const celt_norm *Y, int stereo, int N, int
    }
    mid = celt_sqrt(Emid);
    side = celt_sqrt(Eside);
-#ifdef FIXED_POINT
    /* 0.63662 = 2/pi */
    itheta = MULT16_16_Q15(QCONST16(0.63662f,15),celt_atan2p(side, mid));
-#else
-   itheta = (int)floor(.5f+16384*0.63662f*fast_atan2f(side,mid));
-#endif
+
 
    return itheta;
 }

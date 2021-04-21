@@ -27,10 +27,6 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-//#ifdef HAVE_CONFIG_H
-#include "../config.h"
-//#endif
-
 #define CELT_C
 
 #include "os_support.h"
@@ -306,11 +302,6 @@ const char *opus_get_version_string(void)
     /* Applications may rely on the presence of this substring in the version
        string to determine if they have a fixed-point or floating-point build
        at runtime. */
-#ifdef FIXED_POINT
           "-fixed"
-#endif
-#ifdef FUZZING
-          "-fuzzing"
-#endif
           ;
 }

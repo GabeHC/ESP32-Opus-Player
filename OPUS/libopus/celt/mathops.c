@@ -31,10 +31,6 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-//#ifdef HAVE_CONFIG_H
-#include "../config.h"
-//#endif
-
 #include "mathops.h"
 
 /*Compute floor(sqrt(_val)) with exact arithmetic.
@@ -64,8 +60,6 @@ unsigned isqrt32(uint32_t _val){
   while(bshift>=0);
   return g;
 }
-
-#ifdef FIXED_POINT
 
 opus_val32 frac_div32(opus_val32 a, opus_val32 b)
 {
@@ -206,4 +200,3 @@ opus_val32 celt_rcp(opus_val32 x)
    return VSHR32(EXTEND32(r),i-16);
 }
 
-#endif

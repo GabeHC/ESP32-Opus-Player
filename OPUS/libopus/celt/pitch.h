@@ -37,23 +37,10 @@
 #include "modes.h"
 #include "cpu_support.h"
 
-#if (defined(OPUS_X86_MAY_HAVE_SSE) && !defined(FIXED_POINT)) \
-  || ((defined(OPUS_X86_MAY_HAVE_SSE4_1) || defined(OPUS_X86_MAY_HAVE_SSE2)) && defined(FIXED_POINT))
-#include "x86/pitch_sse.h"
-#endif
-
-#if defined(MIPSr1_ASM)
-#include "mips/pitch_mipsr1.h"
-#endif
-
-#if (defined(OPUS_ARM_ASM) || defined(OPUS_ARM_MAY_HAVE_NEON_INTR))
-# include "arm/pitch_arm.h"
-#endif
-
-void pitch_downsample(celt_sig * OPUS_RESTRICT x[], opus_val16 * OPUS_RESTRICT x_lp,
+void pitch_downsample(celt_sig * __restrict__ x[], opus_val16 * __restrict__ x_lp,
       int len, int C, int arch);
 
-void pitch_search(const opus_val16 * OPUS_RESTRICT x_lp, opus_val16 * OPUS_RESTRICT y,
+void pitch_search(const opus_val16 * __restrict__ x_lp, opus_val16 * __restrict__ y,
                   int len, int max_pitch, int *pitch, int arch);
 
 opus_val16 remove_doubling(opus_val16 *x, int maxperiod, int minperiod,
@@ -166,27 +153,18 @@ static OPUS_INLINE opus_val32 celt_inner_prod_c(const opus_val16 *x,
    return xy;
 }
 
-#if !defined(OVERRIDE_CELT_INNER_PROD)
+
 # define celt_inner_prod(x, y, N, arch) \
     ((void)(arch),celt_inner_prod_c(x, y, N))
-#endif
-
-#ifdef NON_STATIC_COMB_FILTER_CONST_C
-void comb_filter_const_c(opus_val32 *y, opus_val32 *x, int T, int N,
-     opus_val16 g10, opus_val16 g11, opus_val16 g12);
-#endif
 
 
-#ifdef FIXED_POINT
-opus_val32
-#else
-void
-#endif
-celt_pitch_xcorr_c(const opus_val16 *_x, const opus_val16 *_y,
+
+
+
+opus_val32 celt_pitch_xcorr_c(const opus_val16 *_x, const opus_val16 *_y,
       opus_val32 *xcorr, int len, int max_pitch, int arch);
 
-#ifndef OVERRIDE_PITCH_XCORR
 # define celt_pitch_xcorr celt_pitch_xcorr_c
-#endif
+
 
 #endif

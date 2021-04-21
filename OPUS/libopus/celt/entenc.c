@@ -25,9 +25,6 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-//#if defined(HAVE_CONFIG_H)
-# include "../config.h"
-//#endif
 #include "os_support.h"
 #include "arch.h"
 #include "entenc.h"
@@ -209,86 +206,4 @@ void ec_enc_bits(ec_enc *_this,uint32_t _fl,unsigned _bits){
   _this->end_window=window;
   _this->nend_bits=used;
   _this->nbits_total+=_bits;
-}
-
-void ec_enc_patch_initial_bits(ec_enc *_this,unsigned _val,unsigned _nbits){
-  int      shift;
-  unsigned mask;
-  celt_assert(_nbits<=EC_SYM_BITS);
-  shift=EC_SYM_BITS-_nbits;
-  mask=((1<<_nbits)-1)<<shift;
-  if(_this->offs>0){
-    /*The first byte has been finalized.*/
-    _this->buf[0]=(unsigned char)((_this->buf[0]&~mask)|_val<<shift);
-  }
-  else if(_this->rem>=0){
-    /*The first byte is still awaiting carry propagation.*/
-    _this->rem=(_this->rem&~mask)|_val<<shift;
-  }
-  else if(_this->rng<=(EC_CODE_TOP>>_nbits)){
-    /*The renormalization loop has never been run.*/
-    _this->val=(_this->val&~((uint32_t)mask<<EC_CODE_SHIFT))|
-     (uint32_t)_val<<(EC_CODE_SHIFT+shift);
-  }
-  /*The encoder hasn't even encoded _nbits of data yet.*/
-  else _this->error=-1;
-}
-
-void ec_enc_shrink(ec_enc *_this,uint32_t _size){
-  celt_assert(_this->offs+_this->end_offs<=_size);
-  OPUS_MOVE(_this->buf+_size-_this->end_offs,
-   _this->buf+_this->storage-_this->end_offs,_this->end_offs);
-  _this->storage=_size;
-}
-
-void ec_enc_done(ec_enc *_this){
-  ec_window   window;
-  int         used;
-  uint32_t msk;
-  uint32_t end;
-  int         l;
-  /*We output the minimum number of bits that ensures that the symbols encoded
-     thus far will be decoded correctly regardless of the bits that follow.*/
-  l=EC_CODE_BITS-EC_ILOG(_this->rng);
-  msk=(EC_CODE_TOP-1)>>l;
-  end=(_this->val+msk)&~msk;
-  if((end|msk)>=_this->val+_this->rng){
-    l++;
-    msk>>=1;
-    end=(_this->val+msk)&~msk;
-  }
-  while(l>0){
-    ec_enc_carry_out(_this,(int)(end>>EC_CODE_SHIFT));
-    end=(end<<EC_SYM_BITS)&(EC_CODE_TOP-1);
-    l-=EC_SYM_BITS;
-  }
-  /*If we have a buffered byte flush it into the output buffer.*/
-  if(_this->rem>=0||_this->ext>0)ec_enc_carry_out(_this,0);
-  /*If we have buffered extra bits, flush them as well.*/
-  window=_this->end_window;
-  used=_this->nend_bits;
-  while(used>=EC_SYM_BITS){
-    _this->error|=ec_write_byte_at_end(_this,(unsigned)window&EC_SYM_MAX);
-    window>>=EC_SYM_BITS;
-    used-=EC_SYM_BITS;
-  }
-  /*Clear any excess space and add any remaining extra bits to the last byte.*/
-  if(!_this->error){
-    OPUS_CLEAR(_this->buf+_this->offs,
-     _this->storage-_this->offs-_this->end_offs);
-    if(used>0){
-      /*If there's no range coder data at all, give up.*/
-      if(_this->end_offs>=_this->storage)_this->error=-1;
-      else{
-        l=-l;
-        /*If we've busted, don't add too many extra bits to the last byte; it
-           would corrupt the range coder data, and that's more important.*/
-        if(_this->offs+_this->end_offs>=_this->storage&&l<used){
-          window&=(1<<l)-1;
-          _this->error=-1;
-        }
-        _this->buf[_this->storage-_this->end_offs-1]|=(unsigned char)window;
-      }
-    }
-  }
 }

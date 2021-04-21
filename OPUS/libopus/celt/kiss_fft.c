@@ -29,11 +29,6 @@
 /* This code is originally from Mark Borgerding's KISS-FFT but has been
    heavily modified to better suit Opus */
 
-#ifndef SKIP_CONFIG_H
-//#  ifdef HAVE_CONFIG_H
-#    include "../config.h"
-//#  endif
-#endif
 
 #include "_kiss_fft_guts.h"
 #include "arch.h"
@@ -190,12 +185,8 @@ static void kf_bfly3(
    kiss_twiddle_cpx epi3;
 
    kiss_fft_cpx * Fout_beg = Fout;
-#ifdef FIXED_POINT
    /*epi3.r = -16384;*/ /* Unused */
    epi3.i = -28378;
-#else
-   epi3 = st->twiddles[fstride*m];
-#endif
    for (i=0;i<N;i++)
    {
       Fout = Fout_beg + i*mm;
@@ -248,15 +239,10 @@ static void kf_bfly5(
    kiss_twiddle_cpx ya,yb;
    kiss_fft_cpx * Fout_beg = Fout;
 
-#ifdef FIXED_POINT
    ya.r = 10126;
    ya.i = -31164;
    yb.r = -26510;
    yb.i = -19261;
-#else
-   ya = st->twiddles[fstride*m];
-   yb = st->twiddles[fstride*2*m];
-#endif
    tw=st->twiddles;
 
    for (i=0;i<N;i++)
@@ -312,212 +298,6 @@ static void kf_bfly5(
 #endif
 
 
-#ifdef CUSTOM_MODES
-
-static
-void compute_bitrev_table(
-         int Fout,
-         opus_int16 *f,
-         const size_t fstride,
-         int in_stride,
-         opus_int16 * factors,
-         const kiss_fft_state *st
-            )
-{
-   const int p=*factors++; /* the radix  */
-   const int m=*factors++; /* stage's fft length/p */
-
-    /*printf ("fft %d %d %d %d %d %d\n", p*m, m, p, s2, fstride*in_stride, N);*/
-   if (m==1)
-   {
-      int j;
-      for (j=0;j<p;j++)
-      {
-         *f = Fout+j;
-         f += fstride*in_stride;
-      }
-   } else {
-      int j;
-      for (j=0;j<p;j++)
-      {
-         compute_bitrev_table( Fout , f, fstride*p, in_stride, factors,st);
-         f += fstride*in_stride;
-         Fout += m;
-      }
-   }
-}
-
-/*  facbuf is populated by p1,m1,p2,m2, ...
-    where
-    p[i] * m[i] = m[i-1]
-    m0 = n                  */
-static
-int kf_factor(int n,opus_int16 * facbuf)
-{
-    int p=4;
-    int i;
-    int stages=0;
-    int nbak = n;
-
-    /*factor out powers of 4, powers of 2, then any remaining primes */
-    do {
-        while (n % p) {
-            switch (p) {
-                case 4: p = 2; break;
-                case 2: p = 3; break;
-                default: p += 2; break;
-            }
-            if (p>32000 || (opus_int32)p*(opus_int32)p > n)
-                p = n;          /* no more factors, skip to end */
-        }
-        n /= p;
-#ifdef RADIX_TWO_ONLY
-        if (p!=2 && p != 4)
-#else
-        if (p>5)
-#endif
-        {
-           return 0;
-        }
-        facbuf[2*stages] = p;
-        if (p==2 && stages > 1)
-        {
-           facbuf[2*stages] = 4;
-           facbuf[2] = 2;
-        }
-        stages++;
-    } while (n > 1);
-    n = nbak;
-    /* Reverse the order to get the radix 4 at the end, so we can use the
-       fast degenerate case. It turns out that reversing the order also
-       improves the noise behaviour. */
-    for (i=0;i<stages/2;i++)
-    {
-       int tmp;
-       tmp = facbuf[2*i];
-       facbuf[2*i] = facbuf[2*(stages-i-1)];
-       facbuf[2*(stages-i-1)] = tmp;
-    }
-    for (i=0;i<stages;i++)
-    {
-        n /= facbuf[2*i];
-        facbuf[2*i+1] = n;
-    }
-    return 1;
-}
-
-static void compute_twiddles(kiss_twiddle_cpx *twiddles, int nfft)
-{
-   int i;
-#ifdef FIXED_POINT
-   for (i=0;i<nfft;++i) {
-      opus_val32 phase = -i;
-      kf_cexp2(twiddles+i, DIV32(SHL32(phase,17),nfft));
-   }
-#else
-   for (i=0;i<nfft;++i) {
-      const double pi=3.14159265358979323846264338327;
-      double phase = ( -2*pi /nfft ) * i;
-      kf_cexp(twiddles+i, phase );
-   }
-#endif
-}
-
-int opus_fft_alloc_arch_c(kiss_fft_state *st) {
-   (void)st;
-   return 0;
-}
-
-/*
- *
- * Allocates all necessary storage space for the fft and ifft.
- * The return value is a contiguous block of memory.  As such,
- * It can be freed with free().
- * */
-kiss_fft_state *opus_fft_alloc_twiddles(int nfft,void * mem,size_t * lenmem,
-                                        const kiss_fft_state *base, int arch)
-{
-    kiss_fft_state *st=NULL;
-    size_t memneeded = sizeof(struct kiss_fft_state); /* twiddle factors*/
-
-    if ( lenmem==NULL ) {
-        st = ( kiss_fft_state*)KISS_FFT_MALLOC( memneeded );
-    }else{
-        if (mem != NULL && *lenmem >= memneeded)
-            st = (kiss_fft_state*)mem;
-        *lenmem = memneeded;
-    }
-    if (st) {
-        opus_int16 *bitrev;
-        kiss_twiddle_cpx *twiddles;
-
-        st->nfft=nfft;
-#ifdef FIXED_POINT
-        st->scale_shift = celt_ilog2(st->nfft);
-        if (st->nfft == 1<<st->scale_shift)
-           st->scale = Q15ONE;
-        else
-           st->scale = (1073741824+st->nfft/2)/st->nfft>>(15-st->scale_shift);
-#else
-        st->scale = 1.f/nfft;
-#endif
-        if (base != NULL)
-        {
-           st->twiddles = base->twiddles;
-           st->shift = 0;
-           while (st->shift < 32 && nfft<<st->shift != base->nfft)
-              st->shift++;
-           if (st->shift>=32)
-              goto fail;
-        } else {
-           st->twiddles = twiddles = (kiss_twiddle_cpx*)KISS_FFT_MALLOC(sizeof(kiss_twiddle_cpx)*nfft);
-           compute_twiddles(twiddles, nfft);
-           st->shift = -1;
-        }
-        if (!kf_factor(nfft,st->factors))
-        {
-           goto fail;
-        }
-
-        /* bitrev */
-        st->bitrev = bitrev = (opus_int16*)KISS_FFT_MALLOC(sizeof(opus_int16)*nfft);
-        if (st->bitrev==NULL)
-            goto fail;
-        compute_bitrev_table(0, bitrev, 1,1, st->factors,st);
-
-        /* Initialize architecture specific fft parameters */
-        if (opus_fft_alloc_arch(st, arch))
-            goto fail;
-    }
-    return st;
-fail:
-    opus_fft_free(st, arch);
-    return NULL;
-}
-
-kiss_fft_state *opus_fft_alloc(int nfft,void * mem,size_t * lenmem, int arch)
-{
-   return opus_fft_alloc_twiddles(nfft, mem, lenmem, NULL, arch);
-}
-
-void opus_fft_free_arch_c(kiss_fft_state *st) {
-   (void)st;
-}
-
-void opus_fft_free(const kiss_fft_state *cfg, int arch)
-{
-   if (cfg)
-   {
-      opus_fft_free_arch((kiss_fft_state *)cfg, arch);
-      opus_free((opus_int16*)cfg->bitrev);
-      if (cfg->shift < 0)
-         opus_free((kiss_twiddle_cpx*)cfg->twiddles);
-      opus_free((kiss_fft_state*)cfg);
-   }
-}
-
-#endif /* CUSTOM_MODES */
-
 void opus_fft_impl(const kiss_fft_state *st,kiss_fft_cpx *fout)
 {
     int m2, m;
@@ -570,11 +350,9 @@ void opus_fft_c(const kiss_fft_state *st,const kiss_fft_cpx *fin,kiss_fft_cpx *f
 {
    int i;
    opus_val16 scale;
-#ifdef FIXED_POINT
    /* Allows us to scale with MULT16_32_Q16(), which is faster than
       MULT16_32_Q15() on ARM. */
    int scale_shift = st->scale_shift-1;
-#endif
    scale = st->scale;
 
    celt_assert2 (fin != fout, "In-place FFT not supported");

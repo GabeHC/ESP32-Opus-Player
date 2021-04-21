@@ -39,7 +39,7 @@
 
 
 
-//#define opus_likely(x)       (__builtin_expect(!!(x), 1))
+#define opus_likely(x)       (__builtin_expect(!!(x), 1))
 #define opus_unlikely(x)     (__builtin_expect(!!(x), 0))
 
 
