@@ -141,10 +141,6 @@ int encode_size(int size, unsigned char *data);
 
 int32_t frame_size_select(int32_t frame_size, int variable_duration, int32_t Fs);
 
-int32_t opus_encode_native(OpusEncoder *st, const opus_val16 *pcm, int frame_size,
-      unsigned char *data, int32_t out_data_bytes, int lsb_depth,
-      const void *analysis_pcm, int32_t analysis_size, int c1, int c2,
-      int analysis_channels, downmix_func downmix, int float_api);
 
 int opus_decode_native(OpusDecoder *st, const unsigned char *data, int32_t len,
       opus_val16 *pcm, int frame_size, int decode_fec, int self_delimited,
@@ -166,9 +162,6 @@ int opus_packet_parse_impl(const unsigned char *data, int32_t len,
       int self_delimited, unsigned char *out_toc,
       const unsigned char *frames[48], int16_t size[48],
       int *payload_offset, int32_t *packet_offset);
-
-int32_t opus_repacketizer_out_range_impl(OpusRepacketizer *rp, int begin, int end,
-      unsigned char *data, int32_t maxlen, int self_delimited, int pad);
 
 int pad_frame(unsigned char *data, int32_t len, int32_t new_len);
 

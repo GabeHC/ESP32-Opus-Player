@@ -31,111 +31,7 @@
 
 #include "opus.h"
 #include "opus_private.h"
-
-#ifndef DISABLE_FLOAT_API
-OPUS_EXPORT void opus_pcm_soft_clip(float *_x, int N, int C, float *declip_mem)
-{
-   int c;
-   int i;
-   float *x;
-
-   if (C<1 || N<1 || !_x || !declip_mem) return;
-
-   /* First thing: saturate everything to +/- 2 which is the highest level our
-      non-linearity can handle. At the point where the signal reaches +/-2,
-      the derivative will be zero anyway, so this doesn't introduce any
-      discontinuity in the derivative. */
-   for (i=0;i<N*C;i++)
-      _x[i] = MAX16(-2.f, MIN16(2.f, _x[i]));
-   for (c=0;c<C;c++)
-   {
-      float a;
-      float x0;
-      int curr;
-
-      x = _x+c;
-      a = declip_mem[c];
-      /* Continue applying the non-linearity from the previous frame to avoid
-         any discontinuity. */
-      for (i=0;i<N;i++)
-      {
-         if (x[i*C]*a>=0)
-            break;
-         x[i*C] = x[i*C]+a*x[i*C]*x[i*C];
-      }
-
-      curr=0;
-      x0 = x[0];
-      while(1)
-      {
-         int start, end;
-         float maxval;
-         int special=0;
-         int peak_pos;
-         for (i=curr;i<N;i++)
-         {
-            if (x[i*C]>1 || x[i*C]<-1)
-               break;
-         }
-         if (i==N)
-         {
-            a=0;
-            break;
-         }
-         peak_pos = i;
-         start=end=i;
-         maxval=ABS16(x[i*C]);
-         /* Look for first zero crossing before clipping */
-         while (start>0 && x[i*C]*x[(start-1)*C]>=0)
-            start--;
-         /* Look for first zero crossing after clipping */
-         while (end<N && x[i*C]*x[end*C]>=0)
-         {
-            /* Look for other peaks until the next zero-crossing. */
-            if (ABS16(x[end*C])>maxval)
-            {
-               maxval = ABS16(x[end*C]);
-               peak_pos = end;
-            }
-            end++;
-         }
-         /* Detect the special case where we clip before the first zero crossing */
-         special = (start==0 && x[i*C]*x[0]>=0);
-
-         /* Compute a such that maxval + a*maxval^2 = 1 */
-         a=(maxval-1)/(maxval*maxval);
-         /* Slightly boost "a" by 2^-22. This is just enough to ensure -ffast-math
-            does not cause output values larger than +/-1, but small enough not
-            to matter even for 24-bit output.  */
-         a += a*2.4e-7f;
-         if (x[i*C]>0)
-            a = -a;
-         /* Apply soft clipping */
-         for (i=start;i<end;i++)
-            x[i*C] = x[i*C]+a*x[i*C]*x[i*C];
-
-         if (special && peak_pos>=2)
-         {
-            /* Add a linear ramp from the first sample to the signal peak.
-               This avoids a discontinuity at the beginning of the frame. */
-            float delta;
-            float offset = x0-x[0];
-            delta = offset / peak_pos;
-            for (i=curr;i<peak_pos;i++)
-            {
-               offset -= delta;
-               x[i*C] += offset;
-               x[i*C] = MAX16(-1.f, MIN16(1.f, x[i*C]));
-            }
-         }
-         curr = end;
-         if (curr==N)
-            break;
-      }
-      declip_mem[c] = a;
-   }
-}
-#endif
+#include "celt/os_support.h"
 
 int encode_size(int size, unsigned char *data)
 {
@@ -352,4 +248,3 @@ int opus_packet_parse(const unsigned char *data, int32_t len,
    return opus_packet_parse_impl(data, len, 0, out_toc,
                                  frames, size, payload_offset, NULL);
 }
-

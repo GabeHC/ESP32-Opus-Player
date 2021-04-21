@@ -44,30 +44,6 @@ struct OpusProjectionDecoder
   /* Encoder states go here */
 };
 
-#if !defined(DISABLE_FLOAT_API)
-static void opus_projection_copy_channel_out_float(
-  void *dst,
-  int dst_stride,
-  int dst_channel,
-  const opus_val16 *src,
-  int src_stride,
-  int frame_size,
-  void *user_data)
-{
-  float *float_dst;
-  const MappingMatrix *matrix;
-  float_dst = (float *)dst;
-  matrix = (const MappingMatrix *)user_data;
-
-  if (dst_channel == 0)
-    OPUS_CLEAR(float_dst, frame_size * dst_stride);
-
-  if (src != NULL)
-    mapping_matrix_multiply_channel_out_float(matrix, src, dst_channel,
-      src_stride, float_dst, dst_stride, frame_size);
-}
-#endif
-
 static void opus_projection_copy_channel_out_short(
   void *dst,
   int dst_stride,
@@ -173,43 +149,43 @@ int opus_projection_decoder_init(OpusProjectionDecoder *st, int32_t Fs,
   return ret;
 }
 
-OpusProjectionDecoder *opus_projection_decoder_create(
-  int32_t Fs, int channels, int streams, int coupled_streams,
-  unsigned char *demixing_matrix, int32_t demixing_matrix_size, int *error)
-{
-  int size;
-  int ret;
-  OpusProjectionDecoder *st;
+//OpusProjectionDecoder *opus_projection_decoder_create(
+//  int32_t Fs, int channels, int streams, int coupled_streams,
+//  unsigned char *demixing_matrix, int32_t demixing_matrix_size, int *error)
+//{
+//  int size;
+//  int ret;
+//  OpusProjectionDecoder *st;
+//
+//  /* Allocate space for the projection decoder. */
+//  size = opus_projection_decoder_get_size(channels, streams, coupled_streams);
+//  if (!size) {
+//    if (error)
+//      *error = OPUS_ALLOC_FAIL;
+//    return NULL;
+//  }
+//  st = (OpusProjectionDecoder *)opus_alloc(size);
+//  if (!st)
+//  {
+//    if (error)
+//      *error = OPUS_ALLOC_FAIL;
+//    return NULL;
+//  }
+//
+//  /* Initialize projection decoder with provided settings. */
+//  ret = opus_projection_decoder_init(st, Fs, channels, streams, coupled_streams,
+//                                     demixing_matrix, demixing_matrix_size);
+//  if (ret != OPUS_OK)
+//  {
+//    opus_free(st);
+//    st = NULL;
+//  }
+//  if (error)
+//    *error = ret;
+//  return st;
+//}
 
-  /* Allocate space for the projection decoder. */
-  size = opus_projection_decoder_get_size(channels, streams, coupled_streams);
-  if (!size) {
-    if (error)
-      *error = OPUS_ALLOC_FAIL;
-    return NULL;
-  }
-  st = (OpusProjectionDecoder *)opus_alloc(size);
-  if (!st)
-  {
-    if (error)
-      *error = OPUS_ALLOC_FAIL;
-    return NULL;
-  }
 
-  /* Initialize projection decoder with provided settings. */
-  ret = opus_projection_decoder_init(st, Fs, channels, streams, coupled_streams,
-                                     demixing_matrix, demixing_matrix_size);
-  if (ret != OPUS_OK)
-  {
-    opus_free(st);
-    st = NULL;
-  }
-  if (error)
-    *error = ret;
-  return st;
-}
-
-#ifdef FIXED_POINT
 int opus_projection_decode(OpusProjectionDecoder *st, const unsigned char *data,
                            int32_t len, int16_t *pcm, int frame_size,
                            int decode_fec)
@@ -219,41 +195,21 @@ int opus_projection_decode(OpusProjectionDecoder *st, const unsigned char *data,
     pcm, opus_projection_copy_channel_out_short, frame_size, decode_fec, 0,
     get_dec_demixing_matrix(st));
 }
-#else
-int opus_projection_decode(OpusProjectionDecoder *st, const unsigned char *data,
-                           uint32_t len, int16_t *pcm, int frame_size,
-                           int decode_fec)
-{
-  return opus_multistream_decode_native(get_multistream_decoder(st), data, len,
-    pcm, opus_projection_copy_channel_out_short, frame_size, decode_fec, 1,
-    get_dec_demixing_matrix(st));
-}
-#endif
 
-#ifndef DISABLE_FLOAT_API
-int opus_projection_decode_float(OpusProjectionDecoder *st, const unsigned char *data,
-                                 uint32_t len, float *pcm, int frame_size, int decode_fec)
-{
-  return opus_multistream_decode_native(get_multistream_decoder(st), data, len,
-    pcm, opus_projection_copy_channel_out_float, frame_size, decode_fec, 0,
-    get_dec_demixing_matrix(st));
-}
-#endif
+//int opus_projection_decoder_ctl(OpusProjectionDecoder *st, int request, ...)
+//{
+//  va_list ap;
+//  int ret = OPUS_OK;
+//
+//  va_start(ap, request);
+//  ret = opus_multistream_decoder_ctl_va_list(get_multistream_decoder(st),
+//    request, ap);
+//  va_end(ap);
+//  return ret;
+//}
 
-int opus_projection_decoder_ctl(OpusProjectionDecoder *st, int request, ...)
-{
-  va_list ap;
-  int ret = OPUS_OK;
-
-  va_start(ap, request);
-  ret = opus_multistream_decoder_ctl_va_list(get_multistream_decoder(st),
-    request, ap);
-  va_end(ap);
-  return ret;
-}
-
-void opus_projection_decoder_destroy(OpusProjectionDecoder *st)
-{
-  opus_free(st);
-}
+//void opus_projection_decoder_destroy(OpusProjectionDecoder *st)
+//{
+//  opus_free(st);
+//}
 

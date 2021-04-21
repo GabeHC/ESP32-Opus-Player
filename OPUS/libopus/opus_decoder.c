@@ -29,15 +29,6 @@
 # include "config.h"
 //#endif
 
-#ifndef OPUS_BUILD
-# error "OPUS_BUILD _MUST_ be defined to build Opus. This probably means you need other defines as well, as in a config.h. See the included build files for details."
-#endif
-
-#if defined(__GNUC__) && (__GNUC__ >= 2) && !defined(__OPTIMIZE__) && !defined(OPUS_WILL_BE_SLOW)
-// Yes, I know...
-// # pragma message "You appear to be compiling without optimization, if so opus will be very slow."
-#endif
-
 #include <stdarg.h>
 #include "celt/celt.h"
 #include "opus.h"
@@ -72,33 +63,14 @@ struct OpusDecoder {
    int          frame_size;
    int          prev_redundancy;
    int          last_packet_duration;
-#ifndef FIXED_POINT
-   opus_val16   softclip_mem[2];
-#endif
+
 
    uint32_t  rangeFinal;
 };
 
-#if defined(ENABLE_HARDENING) || defined(ENABLE_ASSERTIONS)
-static void validate_opus_decoder(OpusDecoder *st)
-{
-   celt_assert(st->channels == 1 || st->channels == 2);
-   celt_assert(st->Fs == 48000 || st->Fs == 24000 || st->Fs == 16000 || st->Fs == 12000 || st->Fs == 8000);
-   celt_assert(st->DecControl.API_sampleRate == st->Fs);
-   celt_assert(st->DecControl.internalSampleRate == 0 || st->DecControl.internalSampleRate == 16000 || st->DecControl.internalSampleRate == 12000 || st->DecControl.internalSampleRate == 8000);
-   celt_assert(st->DecControl.nChannelsAPI == st->channels);
-   celt_assert(st->DecControl.nChannelsInternal == 0 || st->DecControl.nChannelsInternal == 1 || st->DecControl.nChannelsInternal == 2);
-   celt_assert(st->DecControl.payloadSize_ms == 0 || st->DecControl.payloadSize_ms == 10 || st->DecControl.payloadSize_ms == 20 || st->DecControl.payloadSize_ms == 40 || st->DecControl.payloadSize_ms == 60);
-#ifdef OPUS_ARCHMASK
-   celt_assert(st->arch >= 0);
-   celt_assert(st->arch <= OPUS_ARCHMASK);
-#endif
-   celt_assert(st->stream_channels == 1 || st->stream_channels == 2);
-}
-#define VALIDATE_OPUS_DECODER(st) validate_opus_decoder(st)
-#else
+
 #define VALIDATE_OPUS_DECODER(st)
-#endif
+
 
 int opus_decoder_get_size(int channels)
 {
@@ -318,11 +290,9 @@ static int opus_decode_frame(OpusDecoder *st, const unsigned char *data,
 
    /* In fixed-point, we can tell CELT to do the accumulation on top of the
       SILK PCM buffer. This saves some stack space. */
-#ifdef FIXED_POINT
+
    celt_accum = (mode != MODE_CELT_ONLY) && (frame_size >= F10);
-#else
-   celt_accum = 0;
-#endif
+
 
    pcm_transition_silk_size = ALLOC_NONE;
    pcm_transition_celt_size = ALLOC_NONE;
@@ -753,17 +723,10 @@ int opus_decode_native(OpusDecoder *st, const unsigned char *data,
    st->last_packet_duration = nb_samples;
    if (OPUS_CHECK_ARRAY(pcm, nb_samples*st->channels))
       OPUS_PRINT_INT(nb_samples);
-#ifndef FIXED_POINT
-   if (soft_clip)
-      opus_pcm_soft_clip(pcm, nb_samples, st->channels, st->softclip_mem);
-   else
-      st->softclip_mem[0]=st->softclip_mem[1]=0;
-#endif
 //   log_i("len %i, nb_samples %i", len, nb_samples);
    return nb_samples;
 }
 
-#ifdef FIXED_POINT
 
 int opus_decode(OpusDecoder *st, const unsigned char *data,
       int32_t len, opus_val16 *pcm, int frame_size, int decode_fec)
@@ -774,88 +737,7 @@ int opus_decode(OpusDecoder *st, const unsigned char *data,
    return opus_decode_native(st, data, len, pcm, frame_size, decode_fec, 0, NULL, 0);
 }
 
-#ifndef DISABLE_FLOAT_API
-int opus_decode_float(OpusDecoder *st, const unsigned char *data,
-      int32_t len, float *pcm, int frame_size, int decode_fec)
-{
-   VARDECL(int16_t, out);
-   int ret, i;
-   int nb_samples;
-   ALLOC_STACK;
 
-   if(frame_size<=0)
-   {
-      RESTORE_STACK;
-      return OPUS_BAD_ARG;
-   }
-   if (data != NULL && len > 0 && !decode_fec)
-   {
-      nb_samples = opus_decoder_get_nb_samples(st, data, len);
-      if (nb_samples>0)
-         frame_size = IMIN(frame_size, nb_samples);
-      else
-         return OPUS_INVALID_PACKET;
-   }
-   celt_assert(st->channels == 1 || st->channels == 2);
-   ALLOC(out, frame_size*st->channels, int16_t);
-
-   ret = opus_decode_native(st, data, len, out, frame_size, decode_fec, 0, NULL, 0);
-   if (ret > 0)
-   {
-      for (i=0;i<ret*st->channels;i++)
-         pcm[i] = (1.f/32768.f)*(out[i]);
-   }
-   RESTORE_STACK;
-   return ret;
-}
-#endif
-
-
-#else
-int opus_decode(OpusDecoder *st, const unsigned char *data,
-      int32_t len, int16_t *pcm, int frame_size, int decode_fec)
-{
-   VARDECL(float, out);
-   int ret, i;
-   int nb_samples;
-   ALLOC_STACK;
-
-   if(frame_size<=0)
-   {
-      RESTORE_STACK;
-      return OPUS_BAD_ARG;
-   }
-
-   if (data != NULL && len > 0 && !decode_fec)
-   {
-      nb_samples = opus_decoder_get_nb_samples(st, data, len);
-      if (nb_samples>0)
-         frame_size = IMIN(frame_size, nb_samples);
-      else
-         return OPUS_INVALID_PACKET;
-   }
-   celt_assert(st->channels == 1 || st->channels == 2);
-   ALLOC(out, frame_size*st->channels, float);
-
-   ret = opus_decode_native(st, data, len, out, frame_size, decode_fec, 0, NULL, 1);
-   if (ret > 0)
-   {
-      for (i=0;i<ret*st->channels;i++)
-         pcm[i] = FLOAT2INT16(out[i]);
-   }
-   RESTORE_STACK;
-   return ret;
-}
-
-int opus_decode_float(OpusDecoder *st, const unsigned char *data,
-      int32_t len, opus_val16 *pcm, int frame_size, int decode_fec)
-{
-   if(frame_size<=0)
-      return OPUS_BAD_ARG;
-   return opus_decode_native(st, data, len, pcm, frame_size, decode_fec, 0, NULL, 0);
-}
-
-#endif
 
 int opus_decoder_ctl(OpusDecoder *st, int request, ...)
 {
