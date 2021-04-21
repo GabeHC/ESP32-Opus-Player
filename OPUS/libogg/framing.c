@@ -23,11 +23,9 @@
 #include "config.h"
 //#endif
 
-#include <stdlib.h>
-#include <limits.h>
-#include <string.h>
-#include "ogg/ogg.h"
-
+#include "Arduino.h"
+#include "ogg.h"
+#include "crctable.h"
 #include <pgmspace.h>
 
 /* A complete description of Ogg framing exists in docs/framing.html */
@@ -101,34 +99,7 @@ int ogg_page_packets(const ogg_page *og){
   return(count);
 }
 
-
-#if 0
-/* helper to initialize lookup for direct-table CRC (illustrative; we
-   use the static init in crctable.h) */
-
-static void _ogg_crc_init(){
-  int i, j;
-  uint32_t polynomial, crc;
-  polynomial = 0x04c11db7; /* The same as the ethernet generator
-                              polynomial, although we use an
-                              unreflected alg and an init/final
-                              of 0, not 0xffffffff */
-  for (i = 0; i <= 0xFF; i++){
-    crc = i << 24;
-
-    for (j = 0; j < 8; j++)
-      crc = (crc << 1) ^ (crc & (1 << 31) ? polynomial : 0);
-
-    crc_lookup[0][i] = crc;
-  }
-
-  for (i = 0; i <= 0xFF; i++)
-    for (j = 1; j < 8; j++)
-      crc_lookup[j][i] = crc_lookup[0][(crc_lookup[j - 1][i] >> 24) & 0xFF] ^ (crc_lookup[j - 1][i] << 8);
-}
-#endif
-
-#include "crctable.h"
+//#include "crctable.h"
 
 /* init the encode/decode logical stream state */
 
@@ -720,47 +691,47 @@ long ogg_sync_pageseek(ogg_sync_state *oy,ogg_page *og){
   oy->returned=(int)(next-oy->data);
   return((long)-(next-page));
 }
+//
+///* sync the stream and get a page.  Keep trying until we find a page.
+//   Suppress 'sync errors' after reporting the first.
+//
+//   return values:
+//   -1) recapture (hole in data)
+//    0) need more data
+//    1) page returned
+//
+//   Returns pointers into buffered data; invalidated by next call to
+//   _stream, _clear, _init, or _buffer */
 
-/* sync the stream and get a page.  Keep trying until we find a page.
-   Suppress 'sync errors' after reporting the first.
-
-   return values:
-   -1) recapture (hole in data)
-    0) need more data
-    1) page returned
-
-   Returns pointers into buffered data; invalidated by next call to
-   _stream, _clear, _init, or _buffer */
-
-int ogg_sync_pageout(ogg_sync_state *oy, ogg_page *og){
-
-  if(ogg_sync_check(oy))return 0;
-
-  /* all we need to do is verify a page at the head of the stream
-     buffer.  If it doesn't verify, we look for the next potential
-     frame */
-
-  for(;;){
-    long ret=ogg_sync_pageseek(oy,og);
-    if(ret>0){
-      /* have a page */
-      return(1);
-    }
-    if(ret==0){
-      /* need more data */
-      return(0);
-    }
-
-    /* head did not start a synced page... skipped some bytes */
-    if(!oy->unsynced){
-      oy->unsynced=1;
-      return(-1);
-    }
-
-    /* loop. keep looking */
-
-  }
-}
+//int ogg_sync_pageout(ogg_sync_state *oy, ogg_page *og){
+//
+//  if(ogg_sync_check(oy))return 0;
+//
+//  /* all we need to do is verify a page at the head of the stream
+//     buffer.  If it doesn't verify, we look for the next potential
+//     frame */
+//
+//  for(;;){
+//    long ret=ogg_sync_pageseek(oy,og);
+//    if(ret>0){
+//      /* have a page */
+//      return(1);
+//    }
+//    if(ret==0){
+//      /* need more data */
+//      return(0);
+//    }
+//
+//    /* head did not start a synced page... skipped some bytes */
+//    if(!oy->unsynced){
+//      oy->unsynced=1;
+//      return(-1);
+//    }
+//
+//    /* loop. keep looking */
+//
+//  }
+//}
 
 /* add the incoming page to the stream state; we decompose the page
    into packet segments here as well. */
