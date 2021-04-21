@@ -17,60 +17,7 @@
 #include "opusfile.h"
 
 #define OP_PAGE_SIZE_MAX  (65307)
-//int op_test(OpusHead_t *_head, const unsigned char *_initial_data, size_t _initial_bytes) {
-//    ogg_sync_state oy;
-//    char *data;
-//    int err;
-//    /* The first page of a normal Opus file will be at most 57 bytes (27 Ogg page header bytes + 1 lacing value +
-//       21 Opus header bytes + 8 channel mapping bytes).
-//       It will be at least 47 bytes (27 Ogg page header bytes + 1 lacing value + 19 Opus header bytes using channel
-//       mapping family 0). If we don't have at least that much data, give up now.*/
-//    if(_initial_bytes < 47) return OP_FALSE;
-//    /* Only proceed if we start with the magic OggS string. This is to prevent us spending a lot of time allocating
-//       memory and looking for Ogg pages in non-Ogg files.*/
-//    if(memcmp(_initial_data, "OggS", 4) != 0) return OP_ENOTFORMAT;
-//    if(_initial_bytes>(size_t)LONG_MAX) return OP_EFAULT;
-//    ogg_sync_init(&oy);
-//    data = ogg_sync_buffer(&oy, (long) _initial_bytes);
-//    if(data != NULL) {
-//        ogg_stream_state *os = (ogg_stream_state*) malloc(sizeof(ogg_stream_state));
-//        ogg_page og;
-//        int ret;
-//        memcpy(data, _initial_data, _initial_bytes);
-//        ogg_sync_wrote(&oy, (long) _initial_bytes);
-//        ogg_stream_init(os, -1);
-//        err = OP_FALSE;
-//        do {
-//            ogg_packet op;
-//            ret = ogg_sync_pageout(&oy, &og);
-//            /*Ignore holes.*/
-//            if(ret < 0) continue;
-//            /*Stop if we run out of data.*/
-//            if(!ret) break;
-//            ogg_stream_reset_serialno(os, ogg_page_serialno(&og));
-//            ogg_stream_pagein(os, &og);
-//            /*Only process the first packet on this page (if it's a BOS packet, it's required to be the only one).*/
-//            if(ogg_stream_packetout(os, &op) == 1) {
-//                if(op.b_o_s) {
-//                    ret = opus_head_parse(_head, op.packet, op.bytes);
-//                    /*If this didn't look like Opus, keep going.*/
-//                    if(ret == OP_ENOTFORMAT) continue;
-//                    /*Otherwise we're done, one way or another.*/
-//                    err = ret;
-//                }
-//                /*We finished parsing the headers. There is no Opus to be found.*/
-//                else
-//                    err = OP_ENOTFORMAT;
-//            }
-//        } while(err == OP_FALSE);
-//        ogg_stream_clear(os);
-//        free(os);
-//    }
-//    else
-//        err = OP_EFAULT;
-//    ogg_sync_clear(&oy);
-//    return err;
-//}
+
 #define OP_CHUNK_SIZE     (65536)
 #define OP_CHUNK_SIZE_MAX (1024*(int32_t)1024)
 #define OP_READ_SIZE      (2048)
@@ -661,15 +608,6 @@ static int op_get_packet_duration(const unsigned char *_data, int _len) {
     if(nsamples > 120 * 48) return OP_EBADPACKET;
     return nsamples;
 }
-//----------------------------------------------------------------------------------------------------------------------
-/*This function more properly belongs in info.c, but we define it here to allow
-   the static granule position manipulation functions to remain static.*/
-//int64_t opus_granule_sample(const OpusHead_t *_head, int64_t _gp) {
-//    int32_t pre_skip;
-//    pre_skip = _head->pre_skip;
-//    if(_gp != -1 && op_granpos_add(&_gp, _gp, -pre_skip)) _gp = -1;
-//    return _gp;
-//}
 //----------------------------------------------------------------------------------------------------------------------
 
 /*Grab all the packets currently in the stream state, and compute their
@@ -1573,29 +1511,6 @@ OggOpusFile* op_open_callbacks(void *_stream, const OpusFileCallbacks_t *_cb, co
         free(of);
     }
     return NULL;
-}
-//----------------------------------------------------------------------------------------------------------------------
-/*Convenience routine to clean up from failure for the open functions that
-   create their own streams.*/
-static OggOpusFile* op_open_close_on_failure(void *_stream, const OpusFileCallbacks_t *_cb, int *_error) {
-    OggOpusFile *of;
-    if(_stream==NULL) {
-        if(_error != NULL) *_error = OP_EFAULT;
-        return NULL;
-    }
-    of = op_open_callbacks(_stream, _cb, NULL, 0, _error);
-    if(of==NULL) (*_cb->close)(_stream);
-    return of;
-}
-//----------------------------------------------------------------------------------------------------------------------
-OggOpusFile* op_open_file(const char *_path, int *_error) {
-    OpusFileCallbacks_t cb;
-    return op_open_close_on_failure(op_fopen(&cb, _path, "rb"), &cb, _error);
-}
-//----------------------------------------------------------------------------------------------------------------------
-OggOpusFile* op_open_memory(const unsigned char *_data, size_t _size, int *_error) {
-    OpusFileCallbacks_t cb;
-    return op_open_close_on_failure(op_mem_stream_create(&cb, _data, _size), &cb, _error);
 }
 //----------------------------------------------------------------------------------------------------------------------
 /*Convenience routine to clean up from failure for the open functions that

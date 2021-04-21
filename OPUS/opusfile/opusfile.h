@@ -13,7 +13,7 @@
 #pragma once
 
 #include "Arduino.h"
-#include "../libogg/ogg/ogg.h"
+#include "../libogg/ogg.h"
 #include "../libopus/opus_multistream.h"
 
 
