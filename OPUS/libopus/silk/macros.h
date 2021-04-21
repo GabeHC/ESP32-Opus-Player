@@ -28,10 +28,6 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef SILK_MACROS_H
 #define SILK_MACROS_H
 
-//#ifdef HAVE_CONFIG_H
-#include "../config.h"
-//#endif
-
 #include "../opus_defines.h"
 #include "../celt/arch.h"
 

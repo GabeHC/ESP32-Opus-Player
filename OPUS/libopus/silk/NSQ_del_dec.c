@@ -25,10 +25,6 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 ***********************************************************************/
 
-//#ifdef HAVE_CONFIG_H
-#include "../config.h"
-//#endif
-
 #include "main.h"
 #include "../celt/stack_alloc.h"
 #include "NSQ.h"
@@ -61,9 +57,6 @@ typedef struct {
 
 typedef NSQ_sample_struct  NSQ_sample_pair[ 2 ];
 
-#if defined(MIPSr1_ASM)
-#include "mips/NSQ_del_dec_mipsr1.h"
-#endif
 static OPUS_INLINE void silk_nsq_del_dec_scale_states(
     const silk_encoder_state *psEncC,               /* I    Encoder State                       */
     silk_nsq_state      *NSQ,                       /* I/O  NSQ state                           */

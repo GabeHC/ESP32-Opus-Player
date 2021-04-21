@@ -25,10 +25,6 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 ***********************************************************************/
 
-//#ifdef HAVE_CONFIG_H
-#include "../config.h"
-//#endif
-
 #include "SigProc_FIX.h"
 
 /* Convert int32 coefficients to int16 coefs and make sure there's no wrap-around */

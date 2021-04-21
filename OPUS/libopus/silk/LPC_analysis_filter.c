@@ -25,10 +25,6 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 ***********************************************************************/
 
-//#ifdef HAVE_CONFIG_H
-#include "../config.h"
-//#endif
-
 #include "SigProc_FIX.h"
 #include "../celt/celt_lpc.h"
 
@@ -56,28 +52,13 @@ void silk_LPC_analysis_filter(
 )
 {
     int32_t   j;
-#if defined(FIXED_POINT) && USE_CELT_FIR
-    int16_t num[SILK_MAX_ORDER_LPC];
-#else
     int ix;
     int32_t       out32_Q12, out32;
     const int16_t *in_ptr;
-#endif
-
     celt_assert( d >= 6 );
     celt_assert( (d & 1) == 0 );
     celt_assert( d <= len );
 
-#if defined(FIXED_POINT) && USE_CELT_FIR
-    celt_assert( d <= SILK_MAX_ORDER_LPC );
-    for ( j = 0; j < d; j++ ) {
-        num[ j ] = -B[ j ];
-    }
-    celt_fir( in + d, num, out + d, len - d, d, arch );
-    for ( j = 0; j < d; j++ ) {
-        out[ j ] = 0;
-    }
-#else
     (void)arch;
     for( ix = d; ix < len; ix++ ) {
         in_ptr = &in[ ix - 1 ];
@@ -107,5 +88,4 @@ void silk_LPC_analysis_filter(
 
     /* Set first d output samples to zero */
     silk_memset( out, 0, d * sizeof( int16_t ) );
-#endif
 }

@@ -30,12 +30,6 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #include "../opus_defines.h"
 
-#ifndef FIXED_POINT
-# include <float.h>
-# define silk_float      float
-# define silk_float_MAX  FLT_MAX
-#endif
-
 #define silk_int64_MAX   ((opus_int64)0x7FFFFFFFFFFFFFFFLL)   /*  2^63 - 1 */
 #define silk_int64_MIN   ((opus_int64)0x8000000000000000LL)   /* -2^63 */
 #define silk_int32_MAX   0x7FFFFFFF                           /*  2^31 - 1 =  2147483647 */
