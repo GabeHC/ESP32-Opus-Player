@@ -42,17 +42,11 @@
 extern "C" {
 #endif
 
-#ifdef CUSTOM_MODES
-# define OPUS_CUSTOM_EXPORT OPUS_EXPORT
-# define OPUS_CUSTOM_EXPORT_STATIC OPUS_EXPORT
-#else
+
 # define OPUS_CUSTOM_EXPORT
-# ifdef OPUS_BUILD
-#  define OPUS_CUSTOM_EXPORT_STATIC static OPUS_INLINE
-# else
-#  define OPUS_CUSTOM_EXPORT_STATIC
-# endif
-#endif
+# define OPUS_CUSTOM_EXPORT_STATIC static OPUS_INLINE
+
+
 
 /** @defgroup opus_custom Opus Custom
   * @{
@@ -127,42 +121,6 @@ OPUS_CUSTOM_EXPORT OPUS_WARN_UNUSED_RESULT OpusCustomMode *opus_custom_mode_crea
   */
 OPUS_CUSTOM_EXPORT void opus_custom_mode_destroy(OpusCustomMode *mode);
 
-
-#if !defined(OPUS_BUILD) || defined(CELT_ENCODER_C)
-
-/* Encoder */
-/** Gets the size of an OpusCustomEncoder structure.
-  * @param [in] mode <tt>OpusCustomMode *</tt>: Mode configuration
-  * @param [in] channels <tt>int</tt>: Number of channels
-  * @returns size
-  */
-OPUS_CUSTOM_EXPORT_STATIC OPUS_WARN_UNUSED_RESULT int opus_custom_encoder_get_size(
-    const OpusCustomMode *mode,
-    int channels
-) OPUS_ARG_NONNULL(1);
-
-# ifdef CUSTOM_MODES
-/** Initializes a previously allocated encoder state
-  * The memory pointed to by st must be the size returned by opus_custom_encoder_get_size.
-  * This is intended for applications which use their own allocator instead of malloc.
-  * @see opus_custom_encoder_create(),opus_custom_encoder_get_size()
-  * To reset a previously initialized state use the OPUS_RESET_STATE CTL.
-  * @param [in] st <tt>OpusCustomEncoder*</tt>: Encoder state
-  * @param [in] mode <tt>OpusCustomMode *</tt>: Contains all the information about the characteristics of
-  *  the stream (must be the same characteristics as used for the
-  *  decoder)
-  * @param [in] channels <tt>int</tt>: Number of channels
-  * @return OPUS_OK Success or @ref opus_errorcodes
-  */
-OPUS_CUSTOM_EXPORT int opus_custom_encoder_init(
-    OpusCustomEncoder *st,
-    const OpusCustomMode *mode,
-    int channels
-) OPUS_ARG_NONNULL(1) OPUS_ARG_NONNULL(2);
-# endif
-#endif
-
-
 /** Creates a new encoder state. Each stream needs its own encoder
   * state (can't be shared across simultaneous streams).
   * @param [in] mode <tt>OpusCustomMode*</tt>: Contains all the information about the characteristics of
@@ -236,41 +194,7 @@ OPUS_CUSTOM_EXPORT OPUS_WARN_UNUSED_RESULT int opus_custom_encode(
   * by a convenience macro.
   * @see opus_encoderctls
   */
-OPUS_CUSTOM_EXPORT int opus_custom_encoder_ctl(OpusCustomEncoder * OPUS_RESTRICT st, int request, ...) OPUS_ARG_NONNULL(1);
-
-
-#if !defined(OPUS_BUILD) || defined(CELT_DECODER_C)
-/* Decoder */
-
-/** Gets the size of an OpusCustomDecoder structure.
-  * @param [in] mode <tt>OpusCustomMode *</tt>: Mode configuration
-  * @param [in] channels <tt>int</tt>: Number of channels
-  * @returns size
-  */
-OPUS_CUSTOM_EXPORT_STATIC OPUS_WARN_UNUSED_RESULT int opus_custom_decoder_get_size(
-    const OpusCustomMode *mode,
-    int channels
-) OPUS_ARG_NONNULL(1);
-
-/** Initializes a previously allocated decoder state
-  * The memory pointed to by st must be the size returned by opus_custom_decoder_get_size.
-  * This is intended for applications which use their own allocator instead of malloc.
-  * @see opus_custom_decoder_create(),opus_custom_decoder_get_size()
-  * To reset a previously initialized state use the OPUS_RESET_STATE CTL.
-  * @param [in] st <tt>OpusCustomDecoder*</tt>: Decoder state
-  * @param [in] mode <tt>OpusCustomMode *</tt>: Contains all the information about the characteristics of
-  *  the stream (must be the same characteristics as used for the
-  *  encoder)
-  * @param [in] channels <tt>int</tt>: Number of channels
-  * @return OPUS_OK Success or @ref opus_errorcodes
-  */
-OPUS_CUSTOM_EXPORT_STATIC int opus_custom_decoder_init(
-    OpusCustomDecoder *st,
-    const OpusCustomMode *mode,
-    int channels
-) OPUS_ARG_NONNULL(1) OPUS_ARG_NONNULL(2);
-
-#endif
+OPUS_CUSTOM_EXPORT int opus_custom_encoder_ctl(OpusCustomEncoder * __restrict__ st, int request, ...) OPUS_ARG_NONNULL(1);
 
 
 /** Creates a new decoder state. Each stream needs its own decoder state (can't
@@ -332,7 +256,7 @@ OPUS_CUSTOM_EXPORT OPUS_WARN_UNUSED_RESULT int opus_custom_decode(
   * by a convenience macro.
   * @see opus_genericctls
   */
-OPUS_CUSTOM_EXPORT int opus_custom_decoder_ctl(OpusCustomDecoder * OPUS_RESTRICT st, int request, ...) OPUS_ARG_NONNULL(1);
+OPUS_CUSTOM_EXPORT int opus_custom_decoder_ctl(OpusCustomDecoder * __restrict__ st, int request, ...) OPUS_ARG_NONNULL(1);
 
 /**@}*/
 

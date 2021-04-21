@@ -69,15 +69,10 @@ extern "C" {
  ((__GNUC__<<16)+__GNUC_MINOR__>=((_maj)<<16)+(_min))
 
 
-#  define OPUS_RESTRICT __restrict__
+//#  define OPUS_RESTRICT __restrict__
 
 
 #  define OPUS_INLINE __inline__
-
-
-/**Warning attributes for opus functions
-  * NONNULL is not used in OPUS_BUILD to avoid the compiler optimizing out
-  * some paranoid null checks. */
 
 # define OPUS_WARN_UNUSED_RESULT __attribute__ ((__warn_unused_result__))
 

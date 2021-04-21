@@ -81,77 +81,6 @@ void mapping_matrix_init(MappingMatrix * const matrix,
   }
 }
 
-#ifndef DISABLE_FLOAT_API
-void mapping_matrix_multiply_channel_in_float(
-    const MappingMatrix *matrix,
-    const float *input,
-    int input_rows,
-    opus_val16 *output,
-    int output_row,
-    int output_rows,
-    int frame_size)
-{
-  /* Matrix data is ordered col-wise. */
-  int16_t* matrix_data;
-  int i, col;
-
-  celt_assert(input_rows <= matrix->cols && output_rows <= matrix->rows);
-
-  matrix_data = mapping_matrix_get_data(matrix);
-
-  for (i = 0; i < frame_size; i++)
-  {
-    float tmp = 0;
-    for (col = 0; col < input_rows; col++)
-    {
-      tmp +=
-        matrix_data[MATRIX_INDEX(matrix->rows, output_row, col)] *
-        input[MATRIX_INDEX(input_rows, col, i)];
-    }
-#if defined(FIXED_POINT)
-    output[output_rows * i] = FLOAT2INT16((1/32768.f)*tmp);
-#else
-    output[output_rows * i] = (1/32768.f)*tmp;
-#endif
-  }
-}
-
-void mapping_matrix_multiply_channel_out_float(
-    const MappingMatrix *matrix,
-    const opus_val16 *input,
-    int input_row,
-    int input_rows,
-    float *output,
-    int output_rows,
-    int frame_size
-)
-{
-  /* Matrix data is ordered col-wise. */
-  int16_t* matrix_data;
-  int i, row;
-  float input_sample;
-
-  celt_assert(input_rows <= matrix->cols && output_rows <= matrix->rows);
-
-  matrix_data = mapping_matrix_get_data(matrix);
-
-  for (i = 0; i < frame_size; i++)
-  {
-#if defined(FIXED_POINT)
-    input_sample = (1/32768.f)*input[input_rows * i];
-#else
-    input_sample = input[input_rows * i];
-#endif
-    for (row = 0; row < output_rows; row++)
-    {
-      float tmp =
-        (1/32768.f)*matrix_data[MATRIX_INDEX(matrix->rows, row, input_row)] *
-        input_sample;
-      output[MATRIX_INDEX(output_rows, row, i)] += tmp;
-    }
-  }
-}
-#endif /* DISABLE_FLOAT_API */
 
 void mapping_matrix_multiply_channel_in_short(
     const MappingMatrix *matrix,
@@ -175,21 +104,11 @@ void mapping_matrix_multiply_channel_in_short(
     opus_val32 tmp = 0;
     for (col = 0; col < input_rows; col++)
     {
-#if defined(FIXED_POINT)
       tmp +=
         ((int32_t)matrix_data[MATRIX_INDEX(matrix->rows, output_row, col)] *
         (int32_t)input[MATRIX_INDEX(input_rows, col, i)]) >> 8;
-#else
-      tmp +=
-        matrix_data[MATRIX_INDEX(matrix->rows, output_row, col)] *
-        input[MATRIX_INDEX(input_rows, col, i)];
-#endif
     }
-#if defined(FIXED_POINT)
     output[output_rows * i] = (int16_t)((tmp + 64) >> 7);
-#else
-    output[output_rows * i] = (1/(32768.f*32768.f))*tmp;
-#endif
   }
 }
 
@@ -213,11 +132,7 @@ void mapping_matrix_multiply_channel_out_short(
 
   for (i = 0; i < frame_size; i++)
   {
-#if defined(FIXED_POINT)
     input_sample = (int32_t)input[input_rows * i];
-#else
-    input_sample = (int32_t)FLOAT2INT16(input[input_rows * i]);
-#endif
     for (row = 0; row < output_rows; row++)
     {
       int32_t tmp =

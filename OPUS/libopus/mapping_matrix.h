@@ -61,28 +61,6 @@ void mapping_matrix_init(
     int32_t data_size
 );
 
-#ifndef DISABLE_FLOAT_API
-void mapping_matrix_multiply_channel_in_float(
-    const MappingMatrix *matrix,
-    const float *input,
-    int input_rows,
-    opus_val16 *output,
-    int output_row,
-    int output_rows,
-    int frame_size
-);
-
-void mapping_matrix_multiply_channel_out_float(
-    const MappingMatrix *matrix,
-    const opus_val16 *input,
-    int input_row,
-    int input_rows,
-    float *output,
-    int output_rows,
-    int frame_size
-);
-#endif /* DISABLE_FLOAT_API */
-
 void mapping_matrix_multiply_channel_in_short(
     const MappingMatrix *matrix,
     const int16_t *input,

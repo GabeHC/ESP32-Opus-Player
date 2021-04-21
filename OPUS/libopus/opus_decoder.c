@@ -332,11 +332,9 @@ static int opus_decode_frame(OpusDecoder *st, const unsigned char *data,
    {
       int lost_flag, decoded_samples;
       int16_t *pcm_ptr;
-#ifdef FIXED_POINT
       if (celt_accum)
          pcm_ptr = pcm;
       else
-#endif
          pcm_ptr = pcm_silk;
 
       if (st->prev_mode==MODE_CELT_ONLY)
@@ -506,13 +504,8 @@ static int opus_decode_frame(OpusDecoder *st, const unsigned char *data,
 
    if (mode != MODE_CELT_ONLY && !celt_accum)
    {
-#ifdef FIXED_POINT
       for (i=0;i<frame_size*st->channels;i++)
          pcm[i] = SAT16(ADD32(pcm[i], pcm_silk[i]));
-#else
-      for (i=0;i<frame_size*st->channels;i++)
-         pcm[i] = pcm[i] + (opus_val16)((1.f/32768.f)*pcm_silk[i]);
-#endif
    }
 
    {
