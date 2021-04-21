@@ -25,16 +25,10 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 ***********************************************************************/
 
-//#ifdef HAVE_CONFIG_H
-#include "../config.h"
-//#endif
-#ifdef FIXED_POINT
+
 #include "fixed/main_FIX.h"
 #define silk_encoder_state_Fxx      silk_encoder_state_FIX
-#else
-#include "main_FLP.h"
-#define silk_encoder_state_Fxx      silk_encoder_state_FLP
-#endif
+
 #include "../celt/stack_alloc.h"
 #include "tuning_parameters.h"
 #include "pitch_est_defines.h"
