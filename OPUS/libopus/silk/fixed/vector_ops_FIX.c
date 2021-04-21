@@ -25,10 +25,6 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 ***********************************************************************/
 
-//#ifdef HAVE_CONFIG_H
-#include "../../config.h"
-//#endif
-
 #include "../SigProc_FIX.h"
 #include "../../celt/pitch.h"
 
@@ -75,16 +71,7 @@ int32_t silk_inner_prod_aligned(
     int                         arch                /*    I Run-time architecture                                       */
 )
 {
-#ifdef FIXED_POINT
    return celt_inner_prod(inVec1, inVec2, len, arch);
-#else
-    int32_t   i;
-    int32_t sum = 0;
-    for( i = 0; i < len; i++ ) {
-        sum = silk_SMLABB( sum, inVec1[ i ], inVec2[ i ] );
-    }
-    return sum;
-#endif
 }
 
 int64_t silk_inner_prod16_aligned_64_c(
