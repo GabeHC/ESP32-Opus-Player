@@ -29,6 +29,7 @@ uint8_t             m_channels=2;
 int16_t             m_outBuff[2048*2];              // Interleaved L/R
 int16_t             m_validSamples = 0;
 int16_t             m_curSample = 0;
+boolean             m_f_forceMono = false;
 
 typedef enum { LEFTCHANNEL=0, RIGHTCHANNEL=1 } SampleIndex;
 
@@ -144,11 +145,15 @@ bool playChunk() {
             while(m_validSamples) {
                 uint8_t x =  m_outBuff[m_curSample] & 0x00FF;
                 uint8_t y = (m_outBuff[m_curSample] & 0xFF00) >> 8;
-
+                if(!m_f_forceMono) { // stereo mode
+                    sample[LEFTCHANNEL]  = x;
+                    sample[RIGHTCHANNEL] = y;
+                }
+                else { // force mono
                     uint8_t xy = (x + y) / 2;
                     sample[LEFTCHANNEL]  = xy;
                     sample[RIGHTCHANNEL] = xy;
-
+                }
 
                 while(1) {
                     if(playSample(sample)) break;
@@ -174,9 +179,15 @@ bool playChunk() {
         }
         if(m_channels == 2) {
             while(m_validSamples) {
-                int16_t xy = (m_outBuff[m_curSample * 2] + m_outBuff[m_curSample * 2 + 1]) / 2;
-                sample[LEFTCHANNEL] = xy;
-                sample[RIGHTCHANNEL] = xy;
+                if(!m_f_forceMono) { // stereo mode
+                    sample[LEFTCHANNEL]  = m_outBuff[m_curSample * 2];
+                    sample[RIGHTCHANNEL] = m_outBuff[m_curSample * 2 + 1];
+                }
+                else { // mono mode, #100
+                    int16_t xy = (m_outBuff[m_curSample * 2] + m_outBuff[m_curSample * 2 + 1]) / 2;
+                    sample[LEFTCHANNEL] = xy;
+                    sample[RIGHTCHANNEL] = xy;
+                }
                 if(!playSample(sample)) {
                     return false;
                 } // Can't send
@@ -232,7 +243,7 @@ int OPUS_read(void *_stream, unsigned char* ptr, int nbytes) {
 void opusTask(void *parameter) {
     int ret;
     do {
-        ret = op_read_stereo(of, m_outBuff, 4096);
+        ret = op_read_stereo(of, m_outBuff, 2048);
         if(ret > 0){
             m_validSamples = ret;
             playChunk();
