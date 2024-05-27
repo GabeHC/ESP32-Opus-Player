@@ -10,13 +10,13 @@
 
 
 // Digital I/O used
-#define SD_CS          5
-#define SPI_MOSI      23
-#define SPI_MISO      19
-#define SPI_SCK       18
+#define SD_CS         15
+#define SPI_MOSI      13
+#define SPI_MISO      12
+#define SPI_SCK       14
 #define I2S_DOUT      25
-#define I2S_BCLK      27
-#define I2S_LRC       26
+#define I2S_BCLK      26
+#define I2S_LRC       32
 
 uint8_t             m_i2s_num = I2S_NUM_0;          // I2S_NUM_0 or I2S_NUM_1
 i2s_config_t        m_i2s_config;                   // stores values for I2S driver
@@ -247,6 +247,7 @@ void opusTask(void *parameter) {
         if(ret > 0){
             m_validSamples = ret;
             playChunk();
+            log_e("Chunk played %i bytes", ret);
         }
         vTaskDelay(5);
     } while(ret > 0);
@@ -265,9 +266,10 @@ void setup() {
     SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
     SD.begin(SD_CS);
     file = SD.open("/opus/sample1.opus");
+    log_e("Opus file opened!");
     cb = { OPUS_read, NULL, NULL, NULL };
     of = op_open_callbacks(NULL, &cb, NULL, 0, NULL);
-
+    log_e("Starting OPUS task...");
     xTaskCreatePinnedToCore(
             opusTask, /* Function to implement the task */
             "OPUS", /* Name of the task */
@@ -277,6 +279,7 @@ void setup() {
             &opus_task,  /* Task handle. */
             0 /* Core where the task should run */
     );
+    log_e("finished!");
 }
 
 void loop() {
