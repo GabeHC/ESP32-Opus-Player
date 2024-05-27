@@ -119,6 +119,34 @@ int32_t Gain(int16_t s[2]) {
     return (v[RIGHTCHANNEL] << 16) | (v[LEFTCHANNEL] & 0xffff);
 }
 //---------------------------------------------------------------------------------------------------------------------
+bool playSample(int16_t sample[2]) {
+
+    int16_t sample1[2]; int16_t* s1;
+    int16_t sample2[2]; int16_t* s2 = sample2;
+    int16_t sample3[2]; int16_t* s3 = sample3;
+
+    if (getBitsPerSample() == 8) { // Upsample from unsigned 8 bits to signed 16 bits
+        sample[LEFTCHANNEL]  = ((sample[LEFTCHANNEL]  & 0xff) -128) << 8;
+        sample[RIGHTCHANNEL] = ((sample[RIGHTCHANNEL] & 0xff) -128) << 8;
+    }
+
+    sample[LEFTCHANNEL]  = sample[LEFTCHANNEL]  >> 1; // half Vin so we can boost up to 6dB in filters
+    sample[RIGHTCHANNEL] = sample[RIGHTCHANNEL] >> 1;
+
+    uint32_t s32 = Gain(sample); // vosample2lume;
+
+    esp_err_t err = i2s_write((i2s_port_t) m_i2s_num, (const char*) &s32, sizeof(uint32_t), &m_i2s_bytesWritten, 1000);
+    if(err != ESP_OK) {
+        log_e("ESP32 Errorcode %i", err);
+        return false;
+    }
+    if(m_i2s_bytesWritten < 4) {
+        log_e("Can't stuff any more in I2S..."); // increase waitingtime or outputbuffer
+        return false;
+    }
+    return true;
+}
+//---------------------------------------------------------------------------------------------------------------------
 bool playChunk() {
     // If we've got data, try and pump it out..
     int16_t sample[2];
@@ -200,34 +228,6 @@ bool playChunk() {
     }
     log_e("BitsPer Sample must be 8 or 16!");
     return false;
-}
-//---------------------------------------------------------------------------------------------------------------------
-bool playSample(int16_t sample[2]) {
-
-    int16_t sample1[2]; int16_t* s1;
-    int16_t sample2[2]; int16_t* s2 = sample2;
-    int16_t sample3[2]; int16_t* s3 = sample3;
-
-    if (getBitsPerSample() == 8) { // Upsample from unsigned 8 bits to signed 16 bits
-        sample[LEFTCHANNEL]  = ((sample[LEFTCHANNEL]  & 0xff) -128) << 8;
-        sample[RIGHTCHANNEL] = ((sample[RIGHTCHANNEL] & 0xff) -128) << 8;
-    }
-
-    sample[LEFTCHANNEL]  = sample[LEFTCHANNEL]  >> 1; // half Vin so we can boost up to 6dB in filters
-    sample[RIGHTCHANNEL] = sample[RIGHTCHANNEL] >> 1;
-
-    uint32_t s32 = Gain(sample); // vosample2lume;
-
-    esp_err_t err = i2s_write((i2s_port_t) m_i2s_num, (const char*) &s32, sizeof(uint32_t), &m_i2s_bytesWritten, 1000);
-    if(err != ESP_OK) {
-        log_e("ESP32 Errorcode %i", err);
-        return false;
-    }
-    if(m_i2s_bytesWritten < 4) {
-        log_e("Can't stuff any more in I2S..."); // increase waitingtime or outputbuffer
-        return false;
-    }
-    return true;
 }
 
 //---------------------------------------------------------------------------------------------------------------------
