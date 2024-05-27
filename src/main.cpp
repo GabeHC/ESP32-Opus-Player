@@ -1,13 +1,15 @@
 // OPUS player demo
 // plays Opus files from SD via I2S
 
-
 #include <Arduino.h>
 #include "SD.h"
 #include "FS.h"
 #include "driver/i2s.h"
 #include "OPUS/opusfile/opusfile.h"
+#include "Wire.h"
+#include "SparkFun_WM8960_Arduino_Library.h"
 
+WM8960 audio; // Create an instance of the WM8960 class
 
 // Digital I/O used
 #define SD_CS         15
@@ -247,14 +249,84 @@ void opusTask(void *parameter) {
         if(ret > 0){
             m_validSamples = ret;
             playChunk();
-            log_e("Chunk played %i bytes", ret);
+         //   log_e("Chunk played %i bytes", ret);
         }
         vTaskDelay(5);
     } while(ret > 0);
     vTaskDelete(opus_task);
+    log_e("OPUS task done!");
+}
+void WM8960init() {
+    log_e("Setting up WM8960...");
+    Wire.begin(18, 23); // SDA, SCL WaveShare WM8960 I2C pins
+    if (!audio.begin()) {
+      Serial.println("Failed to initialize WM8960!");
+      while (1);
+    }
+    log_e("WM8960 initialized!");
+      // General setup needed
+    audio.enableVREF();
+    audio.enableVMID();
+
+    // Setup signal flow through the analog audio bypass connections
+
+    audio.enableLMIC();
+    audio.enableRMIC();
+  
+    // Connect from INPUT1 to "n" (aka inverting) inputs of PGAs.
+    audio.connectLMN1();
+    audio.connectRMN1();
+
+    // Disable mutes on PGA inputs (aka INTPUT1)
+    audio.disableLINMUTE();
+    audio.disableRINMUTE();
+
+    // Set input boosts to get inputs 1 to the boost mixers
+    audio.setLMICBOOST(WM8960_MIC_BOOST_GAIN_0DB);
+    audio.setRMICBOOST(WM8960_MIC_BOOST_GAIN_0DB);
+
+    audio.connectLMIC2B();
+    audio.connectRMIC2B();
+
+    // Enable boost mixers
+    audio.enableAINL();
+    audio.enableAINR();
+
+    // Connect LB2LO (booster to output mixer (analog bypass)
+    audio.enableLB2LO();
+    audio.enableRB2RO();
+
+    // Set gainstage between booster mixer and output mixer
+    audio.setLB2LOVOL(WM8960_OUTPUT_MIXER_GAIN_0DB); 
+    audio.setRB2ROVOL(WM8960_OUTPUT_MIXER_GAIN_0DB); 
+
+    // Enable output mixers
+    audio.enableLOMIX();
+    audio.enableROMIX();
+  
+    // CLOCK STUFF, These settings will get you 44.1KHz sample rate, and class-d 
+    // freq at 705.6kHz
+    audio.enablePLL(); // Needed for class-d amp clock
+    audio.setPLLPRESCALE(WM8960_PLLPRESCALE_DIV_2);
+    audio.setSMD(WM8960_PLL_MODE_FRACTIONAL);
+    audio.setCLKSEL(WM8960_CLKSEL_PLL);
+    audio.setSYSCLKDIV(WM8960_SYSCLK_DIV_BY_2);
+    audio.setDCLKDIV(WM8960_DCLKDIV_16);
+    audio.setPLLN(7);
+    audio.setPLLK(0x86, 0xC2, 0x26); // PLLK=86C226h	
+
+    audio.enableSpeakers();
+
+    log_e("Volume set to 60");
+    audio.setSpeakerVolume(60);
+
+    log_e("Example complete. Listen to left/right INPUT1 on Speaker outputs.");
 }
 //---------------------------------------------------------------------------------------------------------------------
 void setup() {
+    // Initialize the WM8960 module
+    WM8960init();
+    audio.setSpeakerVolume(63);
     setupI2S();
     setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT, -1);
     setBitsPerSample(16);
@@ -279,7 +351,6 @@ void setup() {
             &opus_task,  /* Task handle. */
             0 /* Core where the task should run */
     );
-    log_e("finished!");
 }
 
 void loop() {
