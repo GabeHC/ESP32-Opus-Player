@@ -5,6 +5,7 @@ This project is designed to play Opus files via I2S from an SD card and also sup
 ## Hardware Requirements
 
 - WaveShare ESP32 One
+![ESP32-One details](https://www.waveshare.com/wiki/File:ESP32-One-details-inter.jpg)
 - DJSpot Radio Hat
 
 ## Features

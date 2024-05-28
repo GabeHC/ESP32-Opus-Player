@@ -17,8 +17,10 @@ WM8960 audio; // Create an instance of the WM8960 class
 #define SPI_MISO      12
 #define SPI_SCK       14
 #define I2S_DOUT      25
+#define I2S_DIN       33
 #define I2S_BCLK      26
 #define I2S_LRC       32
+#define PTT_PIN       21  // DJSpot LPTT->BCM13: GPIO21 RPTT->BCM4: GPIO27
 
 uint8_t             m_i2s_num = I2S_NUM_0;          // I2S_NUM_0 or I2S_NUM_1
 i2s_config_t        m_i2s_config;                   // stores values for I2S driver
@@ -52,8 +54,8 @@ void setupI2S(){
     m_i2s_config.sample_rate          = 16000;
     m_i2s_config.bits_per_sample      = I2S_BITS_PER_SAMPLE_16BIT;
     m_i2s_config.channel_format       = I2S_CHANNEL_FMT_RIGHT_LEFT;
-    m_i2s_config.communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB);
-//    m_i2s_config.communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_STAND_I2S);
+//    m_i2s_config.communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB);
+    m_i2s_config.communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_STAND_I2S);
     m_i2s_config.intr_alloc_flags     = ESP_INTR_FLAG_LEVEL1; // high interrupt priority
     m_i2s_config.dma_buf_count        = 8;      // max buffers
     m_i2s_config.dma_buf_len          = 1024;   // max value
@@ -244,17 +246,19 @@ int OPUS_read(void *_stream, unsigned char* ptr, int nbytes) {
 
 void opusTask(void *parameter) {
     int ret;
+    digitalWrite(PTT_PIN, HIGH);  // Turn on the radio
     do {
         ret = op_read_stereo(of, m_outBuff, 2048);
         if(ret > 0){
             m_validSamples = ret;
             playChunk();
-         //   log_e("Chunk played %i bytes", ret);
+            log_e("Chunk played %i bytes", ret);
         }
         vTaskDelay(5);
     } while(ret > 0);
-    vTaskDelete(opus_task);
+    digitalWrite(PTT_PIN, LOW);  // Turn off the radio 
     log_e("OPUS task done!");
+    vTaskDelete(opus_task);
 }
 void WM8960init() {
     log_e("Setting up WM8960...");
@@ -317,18 +321,19 @@ void WM8960init() {
 
     audio.enableSpeakers();
 
-    log_e("Volume set to 60");
-    audio.setSpeakerVolume(60);
+    log_e("Volume set to 3.0 dB");
+    audio.setSpeakerVolumeDB(3.0); 
 
     log_e("Example complete. Listen to left/right INPUT1 on Speaker outputs.");
 }
 //---------------------------------------------------------------------------------------------------------------------
 void setup() {
+    pinMode(PTT_PIN, OUTPUT);
+    digitalWrite(PTT_PIN, LOW);  // Turn off the radio 
     // Initialize the WM8960 module
     WM8960init();
-    audio.setSpeakerVolume(63);
     setupI2S();
-    setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT, -1);
+    setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT, I2S_DIN);
     setBitsPerSample(16);
     setChannels(2);
     setSampleRate(48000);
