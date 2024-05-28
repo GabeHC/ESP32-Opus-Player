@@ -8,6 +8,7 @@ This project is designed to play Opus files via I2S from an SD card and also sup
  ![ESP32 One](https://www.waveshare.com/img/devkit/accBoard/ESP32-One/ESP32-One-details-1.jpg)
  ![PinOut](https://www.waveshare.com/w/upload/f/f7/ESP32-One-details-inter.jpg)
 - DJSpot Radio Hat
+ ![DJSpot_V22](https://github.com/GabeHC/ESP32-Opus-Player/assets/5255323/0110e880-e6f3-42f5-9702-3e36e16785f1)
 
 ## Features
 
