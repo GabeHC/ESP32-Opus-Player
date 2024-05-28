@@ -12,7 +12,7 @@ This project is designed to play Opus files via I2S from an SD card and also sup
 
 - DJSpot Radio Hat
 <div style="width: 50%;">
-    <img src="https://github.com/GabeHC/ESP32-Opus-Player/assets/5255323/0110e880-e6f3-42f5-9702-3e36e16785f1" alt="DJSpot V22" style="width: 100%; height: auto;" />
+    <img src="https://github.com/GabeHC/ESP32-Opus-Player/assets/5255323/0110e880-e6f3-42f5-9702-3e36e16785f1" alt="DJSpot V22" style="width: 50%; height: auto;" />
 </div>
 
 
