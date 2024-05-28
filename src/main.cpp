@@ -20,7 +20,10 @@ WM8960 audio; // Create an instance of the WM8960 class
 #define I2S_DIN       33
 #define I2S_BCLK      26
 #define I2S_LRC       32
-#define PTT_PIN       21  // DJSpot LPTT->BCM13: GPIO21 RPTT->BCM4: GPIO27
+#define DJ_PTT1       21  // DJSpot PTT1->BCM13: GPIO21 
+#define DJ_PTT2       27  // DJSpot PTT2->BCM4: GPIO27
+#define DJ_PD1        35  // DJSpot PD1->BCM6: GPIO35
+#define DJ_PD2        34  // DJSpot PD2->BCM5: GPIO34
 
 uint8_t             m_i2s_num = I2S_NUM_0;          // I2S_NUM_0 or I2S_NUM_1
 i2s_config_t        m_i2s_config;                   // stores values for I2S driver
@@ -246,7 +249,7 @@ int OPUS_read(void *_stream, unsigned char* ptr, int nbytes) {
 
 void opusTask(void *parameter) {
     int ret;
-    digitalWrite(PTT_PIN, HIGH);  // Turn on the radio
+    digitalWrite(DJ_PTT1, HIGH);  // Turn on the radio
     do {
         ret = op_read_stereo(of, m_outBuff, 2048);
         if(ret > 0){
@@ -256,7 +259,7 @@ void opusTask(void *parameter) {
         }
         vTaskDelay(5);
     } while(ret > 0);
-    digitalWrite(PTT_PIN, LOW);  // Turn off the radio 
+    digitalWrite(DJ_PTT1, LOW);  // Turn off the radio 
     log_e("OPUS task done!");
     vTaskDelete(opus_task);
 }
@@ -328,8 +331,8 @@ void WM8960init() {
 }
 //---------------------------------------------------------------------------------------------------------------------
 void setup() {
-    pinMode(PTT_PIN, OUTPUT);
-    digitalWrite(PTT_PIN, LOW);  // Turn off the radio 
+    pinMode(DJ_PTT1, OUTPUT);
+    digitalWrite(DJ_PTT1, LOW);  // Turn off the radio 
     // Initialize the WM8960 module
     WM8960init();
     setupI2S();
