@@ -9,7 +9,7 @@
 #include "Wire.h"
 #include "SparkFun_WM8960_Arduino_Library.h"
 
-WM8960 audio; // Create an instance of the WM8960 class
+WM8960 codec; // Create an instance of the WM8960 class
 
 // Digital I/O used
 #define SD_CS         15
@@ -28,9 +28,9 @@ WM8960 audio; // Create an instance of the WM8960 class
 uint8_t             m_i2s_num = I2S_NUM_0;          // I2S_NUM_0 or I2S_NUM_1
 i2s_config_t        m_i2s_config;                   // stores values for I2S driver
 i2s_pin_config_t    m_pin_config;
-uint32_t            m_sampleRate=16000;
+uint32_t            m_sampleRate=44100;
 uint8_t             m_bitsPerSample = 16;           // bitsPerSample
-uint8_t             m_vol=64;                       // volume
+uint8_t             m_vol=32;                       // volume
 size_t              m_i2s_bytesWritten = 0;         // set in i2s_write() but not used
 uint8_t             m_channels=2;
 int16_t             m_outBuff[2048*2];              // Interleaved L/R
@@ -54,17 +54,19 @@ File file;
 void setupI2S(){
     m_i2s_num = I2S_NUM_0; // i2s port number
     m_i2s_config.mode                 = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX);
-    m_i2s_config.sample_rate          = 16000;
+    m_i2s_config.sample_rate          = 44100;
     m_i2s_config.bits_per_sample      = I2S_BITS_PER_SAMPLE_16BIT;
     m_i2s_config.channel_format       = I2S_CHANNEL_FMT_RIGHT_LEFT;
-//    m_i2s_config.communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB);
-    m_i2s_config.communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_STAND_I2S);
+    m_i2s_config.communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB);
+//    m_i2s_config.communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_STAND_I2S);
     m_i2s_config.intr_alloc_flags     = ESP_INTR_FLAG_LEVEL1; // high interrupt priority
     m_i2s_config.dma_buf_count        = 8;      // max buffers
-    m_i2s_config.dma_buf_len          = 1024;   // max value
-//   m_i2s_config.use_apll             = APLL_ENABLE;
+    m_i2s_config.dma_buf_len          = 512;   // max value
+    m_i2s_config.use_apll             = true;
     m_i2s_config.tx_desc_auto_clear   = true;   // new in V1.0.1
-    m_i2s_config.fixed_mclk           = I2S_PIN_NO_CHANGE;
+ //   m_i2s_config.fixed_mclk           = I2S_PIN_NO_CHANGE;
+ //   m_i2s_config.mclk_multiple        = I2S_MCLK_MULTIPLE_DEFAULT;
+ //   m_i2s_config.bits_per_chan        = I2S_BITS_PER_CHAN_DEFAULT;
 
     i2s_driver_install((i2s_port_t)m_i2s_num, &m_i2s_config, 0, NULL);
 
@@ -249,7 +251,7 @@ int OPUS_read(void *_stream, unsigned char* ptr, int nbytes) {
 
 void opusTask(void *parameter) {
     int ret;
-    digitalWrite(DJ_PTT1, HIGH);  // Turn on the radio
+   // digitalWrite(DJ_PTT1, HIGH);  // Turn on the radio
     do {
         ret = op_read_stereo(of, m_outBuff, 2048);
         if(ret > 0){
@@ -263,83 +265,86 @@ void opusTask(void *parameter) {
     log_e("OPUS task done!");
     vTaskDelete(opus_task);
 }
+//---------------------------------------------------------------------------------------------------------------------
+void codec_setup()
+{
+  // General setup needed
+  codec.enableVREF();
+  codec.enableVMID();
+
+  // Connect from DAC outputs to output mixer
+  codec.enableLD2LO();
+  codec.enableRD2RO();
+
+  // Set gainstage between booster mixer and output mixer
+  // For this loopback example, we are going to keep these as low as they go
+  codec.setLB2LOVOL(WM8960_OUTPUT_MIXER_GAIN_NEG_21DB); 
+  codec.setRB2ROVOL(WM8960_OUTPUT_MIXER_GAIN_NEG_21DB);
+
+  // Enable output mixers
+  codec.enableLOMIX();
+  codec.enableROMIX();
+
+  // CLOCK STUFF, These settings will get you 44.1KHz sample rate, and class-d 
+  // freq at 705.6kHz
+  codec.enablePLL(); // Needed for class-d amp clock
+  codec.setPLLPRESCALE(WM8960_PLLPRESCALE_DIV_2);
+  codec.setSMD(WM8960_PLL_MODE_FRACTIONAL);
+  codec.setCLKSEL(WM8960_CLKSEL_PLL);
+  codec.setSYSCLKDIV(WM8960_SYSCLK_DIV_BY_2);
+  codec.setBCLKDIV(4);
+  codec.setDCLKDIV(WM8960_DCLKDIV_16);
+  codec.setPLLN(7);
+  codec.setPLLK(0x86, 0xC2, 0x26); // PLLK=86C226h
+  //codec.setADCDIV(0); // Default is 000 (what we need for 44.1KHz)
+  //codec.setDACDIV(0); // Default is 000 (what we need for 44.1KHz)
+  codec.setWL(WM8960_WL_16BIT);
+
+  codec.enablePeripheralMode();
+  //codec.enableMasterMode();
+  //codec.setALRCGPIO(); // Note, should not be changed while ADC is enabled.
+
+  // Enable DACs
+  codec.enableDacLeft();
+  codec.enableDacRight();
+
+  //codec.enableLoopBack(); // Loopback sends ADC data directly into DAC
+  codec.disableLoopBack();
+
+  // Default is "soft mute" on, so we must disable mute to make channels active
+  codec.disableDacMute(); 
+
+  codec.enableHeadphones();
+  codec.enableOUT3MIX(); // Provides VMID as buffer for headphone ground
+
+  Serial.println("Volume set to +0dB");
+  codec.setHeadphoneVolumeDB(-30.0);
+
+  codec.enableSpeakers();
+  codec.setSpeakerVolumeDB(-0.0);
+
+  Serial.println("Codec Setup complete. Connect via Bluetooth, play music, and listen on Headphone outputs.");
+}
+
 void WM8960init() {
     log_e("Setting up WM8960...");
+    //Wire.begin();
     Wire.begin(18, 23); // SDA, SCL WaveShare WM8960 I2C pins
-    if (!audio.begin()) {
+    if (!codec.begin()) {
       Serial.println("Failed to initialize WM8960!");
       while (1);
     }
-    log_e("WM8960 initialized!");
-      // General setup needed
-    audio.enableVREF();
-    audio.enableVMID();
-
-    // Setup signal flow through the analog audio bypass connections
-
-    audio.enableLMIC();
-    audio.enableRMIC();
-  
-    // Connect from INPUT1 to "n" (aka inverting) inputs of PGAs.
-    audio.connectLMN1();
-    audio.connectRMN1();
-
-    // Disable mutes on PGA inputs (aka INTPUT1)
-    audio.disableLINMUTE();
-    audio.disableRINMUTE();
-
-    // Set input boosts to get inputs 1 to the boost mixers
-    audio.setLMICBOOST(WM8960_MIC_BOOST_GAIN_0DB);
-    audio.setRMICBOOST(WM8960_MIC_BOOST_GAIN_0DB);
-
-    audio.connectLMIC2B();
-    audio.connectRMIC2B();
-
-    // Enable boost mixers
-    audio.enableAINL();
-    audio.enableAINR();
-
-    // Connect LB2LO (booster to output mixer (analog bypass)
-    audio.enableLB2LO();
-    audio.enableRB2RO();
-
-    // Set gainstage between booster mixer and output mixer
-    audio.setLB2LOVOL(WM8960_OUTPUT_MIXER_GAIN_0DB); 
-    audio.setRB2ROVOL(WM8960_OUTPUT_MIXER_GAIN_0DB); 
-
-    // Enable output mixers
-    audio.enableLOMIX();
-    audio.enableROMIX();
-  
-    // CLOCK STUFF, These settings will get you 44.1KHz sample rate, and class-d 
-    // freq at 705.6kHz
-    audio.enablePLL(); // Needed for class-d amp clock
-    audio.setPLLPRESCALE(WM8960_PLLPRESCALE_DIV_2);
-    audio.setSMD(WM8960_PLL_MODE_FRACTIONAL);
-    audio.setCLKSEL(WM8960_CLKSEL_PLL);
-    audio.setSYSCLKDIV(WM8960_SYSCLK_DIV_BY_2);
-    audio.setDCLKDIV(WM8960_DCLKDIV_16);
-    audio.setPLLN(7);
-    audio.setPLLK(0x86, 0xC2, 0x26); // PLLK=86C226h	
-
-    audio.enableSpeakers();
-
-    log_e("Volume set to 3.0 dB");
-    audio.setSpeakerVolumeDB(3.0); 
-
-    log_e("Example complete. Listen to left/right INPUT1 on Speaker outputs.");
+    codec_setup();
 }
 //---------------------------------------------------------------------------------------------------------------------
 void setup() {
     pinMode(DJ_PTT1, OUTPUT);
     digitalWrite(DJ_PTT1, LOW);  // Turn off the radio 
-    // Initialize the WM8960 module
-    WM8960init();
     setupI2S();
     setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT, I2S_DIN);
     setBitsPerSample(16);
     setChannels(2);
-    setSampleRate(48000);
+    setSampleRate(44100);
     I2Sstart(m_i2s_num);
     Serial.begin(115200);
     delay(1000);
@@ -349,7 +354,11 @@ void setup() {
     log_e("Opus file opened!");
     cb = { OPUS_read, NULL, NULL, NULL };
     of = op_open_callbacks(NULL, &cb, NULL, 0, NULL);
+    // Initialize the WM8960 module
+    WM8960init();
     log_e("Starting OPUS task...");
+    // turn off logging
+    esp_log_level_set("*", ESP_LOG_NONE);
     xTaskCreatePinnedToCore(
             opusTask, /* Function to implement the task */
             "OPUS", /* Name of the task */
