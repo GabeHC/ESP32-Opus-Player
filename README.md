@@ -32,6 +32,11 @@ This project is designed to play Opus files via I2S from an SD card and also sup
 - To play Opus files from the SD card, navigate to the file directory and select the file you want to play.
 - To stream from the web, input the URL of the streaming source.
 
+## Configuration
+
+For stable audio playback, specific configuration settings are required. See our detailed guide:
+- [Configuration Guide](docs/Configuration.md) - Working settings and troubleshooting steps
+
 ## Contributing
 
 Contributions are welcome! Please read our [contributing guidelines](CONTRIBUTING.md) to get started.

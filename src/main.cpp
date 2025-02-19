@@ -8,6 +8,7 @@
 #include "OPUS/opusfile/opusfile.h"
 #include "Wire.h"
 #include "SparkFun_WM8960_Arduino_Library.h"
+#include "esp_task_wdt.h"
 
 WM8960 codec; // Create an instance of the WM8960 class
 
@@ -24,6 +25,9 @@ WM8960 codec; // Create an instance of the WM8960 class
 #define DJ_PTT2       27  // DJSpot PTT2->BCM4: GPIO27
 #define DJ_PD1        35  // DJSpot PD1->BCM6: GPIO35
 #define DJ_PD2        34  // DJSpot PD2->BCM5: GPIO34
+
+#define OPUS_BUFFER_SIZE 4096              // Reduced from 8192
+#define OUTPUT_BUFFER_SIZE (OPUS_BUFFER_SIZE * 2)
 
 uint8_t             m_i2s_num = I2S_NUM_0;          // I2S_NUM_0 or I2S_NUM_1
 i2s_config_t        m_i2s_config;                   // stores values for I2S driver
@@ -52,6 +56,7 @@ File file;
 //        I 2 S   S t u f f
 //---------------------------------------------------------------------------------------------------------------------
 void setupI2S(){
+<<<<<<< Updated upstream
     m_i2s_num = I2S_NUM_0; // i2s port number
     m_i2s_config.mode                 = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX);
     m_i2s_config.sample_rate          = 44100;
@@ -67,6 +72,20 @@ void setupI2S(){
  //   m_i2s_config.fixed_mclk           = I2S_PIN_NO_CHANGE;
  //   m_i2s_config.mclk_multiple        = I2S_MCLK_MULTIPLE_DEFAULT;
  //   m_i2s_config.bits_per_chan        = I2S_BITS_PER_CHAN_DEFAULT;
+=======
+    m_i2s_num = I2S_NUM_0;
+    m_i2s_config.mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX);
+    m_i2s_config.sample_rate = 48000;  // Changed from 16000
+    m_i2s_config.bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT;
+    m_i2s_config.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT;
+    m_i2s_config.communication_format = I2S_COMM_FORMAT_STAND_I2S;  // Updated format
+    m_i2s_config.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1;
+    m_i2s_config.dma_buf_count = 8;
+    m_i2s_config.dma_buf_len = 1024;
+    m_i2s_config.use_apll = true;      // Enable APLL
+    m_i2s_config.tx_desc_auto_clear = true;
+    m_i2s_config.fixed_mclk = 0;
+>>>>>>> Stashed changes
 
     i2s_driver_install((i2s_port_t)m_i2s_num, &m_i2s_config, 0, NULL);
 
@@ -157,86 +176,18 @@ bool playSample(int16_t sample[2]) {
 }
 //---------------------------------------------------------------------------------------------------------------------
 bool playChunk() {
-    // If we've got data, try and pump it out..
-    int16_t sample[2];
-    if(getBitsPerSample() == 8) {
-        if(m_channels == 1) {
-            while(m_validSamples) {
-                uint8_t x =  m_outBuff[m_curSample] & 0x00FF;
-                uint8_t y = (m_outBuff[m_curSample] & 0xFF00) >> 8;
-                sample[LEFTCHANNEL]  = x;
-                sample[RIGHTCHANNEL] = x;
-                while(1) {
-                    if(playSample(sample)) break;
-                } // Can't send?
-                sample[LEFTCHANNEL]  = y;
-                sample[RIGHTCHANNEL] = y;
-                while(1) {
-                    if(playSample(sample)) break;
-                } // Can't send?
-                m_validSamples--;
-                m_curSample++;
-            }
-        }
-        if(m_channels == 2) {
-            while(m_validSamples) {
-                uint8_t x =  m_outBuff[m_curSample] & 0x00FF;
-                uint8_t y = (m_outBuff[m_curSample] & 0xFF00) >> 8;
-                if(!m_f_forceMono) { // stereo mode
-                    sample[LEFTCHANNEL]  = x;
-                    sample[RIGHTCHANNEL] = y;
-                }
-                else { // force mono
-                    uint8_t xy = (x + y) / 2;
-                    sample[LEFTCHANNEL]  = xy;
-                    sample[RIGHTCHANNEL] = xy;
-                }
-
-                while(1) {
-                    if(playSample(sample)) break;
-                } // Can't send?
-                m_validSamples--;
-                m_curSample++;
-            }
-        }
-        m_curSample = 0;
-        return true;
+    size_t bytes_written = 0;
+    static uint32_t s32[1024];  // Static buffer for conversion
+    
+    // Convert samples to 32-bit and apply reduced volume
+    for(int i = 0; i < m_validSamples; i++) {
+        int16_t left = (m_outBuff[i * 2] * m_vol) >> 8;   // Increased shift from 6 to 8 (reduced volume)
+        int16_t right = (m_outBuff[i * 2 + 1] * m_vol) >> 8;
+        s32[i] = (right << 16) | (left & 0xffff);
     }
-    if(getBitsPerSample() == 16) {
-        if(m_channels == 1) {
-            while(m_validSamples) {
-                sample[LEFTCHANNEL]  = m_outBuff[m_curSample];
-                sample[RIGHTCHANNEL] = m_outBuff[m_curSample];
-                if(!playSample(sample)) {
-                    return false;
-                } // Can't send
-                m_validSamples--;
-                m_curSample++;
-            }
-        }
-        if(m_channels == 2) {
-            while(m_validSamples) {
-                if(!m_f_forceMono) { // stereo mode
-                    sample[LEFTCHANNEL]  = m_outBuff[m_curSample * 2];
-                    sample[RIGHTCHANNEL] = m_outBuff[m_curSample * 2 + 1];
-                }
-                else { // mono mode, #100
-                    int16_t xy = (m_outBuff[m_curSample * 2] + m_outBuff[m_curSample * 2 + 1]) / 2;
-                    sample[LEFTCHANNEL] = xy;
-                    sample[RIGHTCHANNEL] = xy;
-                }
-                if(!playSample(sample)) {
-                    return false;
-                } // Can't send
-                m_validSamples--;
-                m_curSample++;
-            }
-        }
-        m_curSample = 0;
-        return true;
-    }
-    log_e("BitsPer Sample must be 8 or 16!");
-    return false;
+    
+    esp_err_t result = i2s_write((i2s_port_t)m_i2s_num, s32, m_validSamples * 4, &bytes_written, portMAX_DELAY);
+    return (result == ESP_OK);
 }
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -251,6 +202,7 @@ int OPUS_read(void *_stream, unsigned char* ptr, int nbytes) {
 
 void opusTask(void *parameter) {
     int ret;
+<<<<<<< Updated upstream
    // digitalWrite(DJ_PTT1, HIGH);  // Turn on the radio
     do {
         ret = op_read_stereo(of, m_outBuff, 2048);
@@ -340,38 +292,139 @@ void WM8960init() {
 void setup() {
     pinMode(DJ_PTT1, OUTPUT);
     digitalWrite(DJ_PTT1, LOW);  // Turn off the radio 
+=======
+    const TickType_t xDelay = pdMS_TO_TICKS(1);
+    
+    // Initialize watchdog for this task
+    esp_task_wdt_init(10, false);  // 10 second timeout, don't panic on timeout
+    
+    log_e("OpusTask: Starting playback...");
+    while(true) {
+        // Feed watchdog
+        esp_task_wdt_reset();
+        
+        ret = op_read_stereo(of, m_outBuff, 1024);  // Reduced buffer size for more frequent yields
+        if(ret > 0) {
+            m_validSamples = ret;
+            if(!playChunk()) {
+                vTaskDelay(xDelay);
+            }
+        } else if(ret == 0) {
+            log_e("End of file reached");
+            break;
+        } else {
+            log_e("Error reading opus data: %d", ret);
+            vTaskDelay(xDelay);
+        }
+        
+        // Give other tasks a chance to run
+        taskYIELD();
+    }
+    
+    log_e("OPUS task done!");
+    vTaskDelete(NULL);
+}
+
+void WM8960init() {
+    log_e("Setting up WM8960...");
+    Wire.begin(18, 23);
+    if (!audio.begin()) {
+        log_e("Failed to initialize WM8960!");
+        while (1);
+    }
+    log_e("WM8960 initialized!");
+
+    // Power management
+    audio.enableVREF();
+    audio.enableVMID();
+
+    // Configure I2S interface
+    audio.setWL(WM8960_WL_16BIT);
+    audio.enablePeripheralMode();
+
+    // PLL configuration for 48kHz
+    audio.enablePLL();
+    audio.setPLLPRESCALE(WM8960_PLLPRESCALE_DIV_2);
+    audio.setSMD(WM8960_PLL_MODE_FRACTIONAL);
+    audio.setCLKSEL(WM8960_CLKSEL_PLL);
+    audio.setSYSCLKDIV(WM8960_SYSCLK_DIV_BY_2);
+    audio.setBCLKDIV(4);
+    audio.setDCLKDIV(WM8960_DCLKDIV_16);
+    audio.setPLLN(7);
+    audio.setPLLK(0x86, 0xC2, 0x26);
+
+    // Enable DAC and outputs
+    audio.enableDacLeft();
+    audio.enableDacRight();
+    audio.enableLD2LO();  // Left DAC to Left Output Mixer
+    audio.enableRD2RO();  // Right DAC to Right Output Mixer
+    audio.enableLOMIX();  // Enable Left Output Mixer
+    audio.enableROMIX();  // Enable Right Output Mixer
+
+    // Set lower volumes for both outputs
+    audio.disableDacMute();
+    audio.enableHeadphones();
+    audio.enableSpeakers();
+    audio.setHeadphoneVolumeDB(-20);    // Reduced from 0dB to -20dB
+    audio.setSpeakerVolumeDB(-20);      // Reduced from 0dB to -20dB
+
+    log_e("WM8960 setup complete");
+}
+//---------------------------------------------------------------------------------------------------------------------
+void setup() {
+    Serial.begin(115200);
+    delay(1000);
+    
+    // Initialize SD Card first
+    SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
+    if (!SD.begin(SD_CS)) {
+        log_e("SD Card Mount Failed!");
+        return;
+    }
+    
+    // Setup audio chain
+    WM8960init();
+>>>>>>> Stashed changes
     setupI2S();
     setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT, I2S_DIN);
     setBitsPerSample(16);
     setChannels(2);
     setSampleRate(44100);
     I2Sstart(m_i2s_num);
-    Serial.begin(115200);
-    delay(1000);
-    SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
-    SD.begin(SD_CS);
+    
+    // Open Opus file
     file = SD.open("/opus/sample1.opus");
+    if (!file) {
+        log_e("Failed to open file!");
+        return;
+    }
     log_e("Opus file opened!");
+    
     cb = { OPUS_read, NULL, NULL, NULL };
     of = op_open_callbacks(NULL, &cb, NULL, 0, NULL);
+<<<<<<< Updated upstream
     // Initialize the WM8960 module
     WM8960init();
     log_e("Starting OPUS task...");
     // turn off logging
     esp_log_level_set("*", ESP_LOG_NONE);
+=======
+    
+    // Create OPUS task
+>>>>>>> Stashed changes
     xTaskCreatePinnedToCore(
-            opusTask, /* Function to implement the task */
-            "OPUS", /* Name of the task */
-            4096 * 4,  /* Stack size in words */
-            NULL,  /* Task input parameter */
-            1 | portPRIVILEGE_BIT,  /* Priority of the task */
-            &opus_task,  /* Task handle. */
-            0 /* Core where the task should run */
+        opusTask,
+        "OPUS",
+        16384,           // Increased from 8192 to 16KB
+        NULL,
+        2,              // Priority 2
+        &opus_task,
+        1               // Run on core 1
     );
 }
 
 void loop() {
-    ;
+    vTaskDelay(pdMS_TO_TICKS(10));  // Add small delay to prevent watchdog issues
 }
 //---------------------------------------------------------------------------------------------------------------------
 
